@@ -1,10 +1,34 @@
-use std::{
-    fs::File,
-    io::{self, Write},
-    sync::{Mutex, MutexGuard},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{fs::{File, OpenOptions}, io::{self, Write}, sync::Mutex};
 
+pub struct Log {
+    file: Mutex<File>
+}
+
+impl Log {
+    pub fn new(path: &str) -> io::Result<Self> {
+        let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(path)?;
+
+        Ok(Log { file: Mutex::new(file) })
+    }
+
+    pub fn append(&self, entry: &str) -> io::Result<()> { 
+        let mut file = self.file.lock().unwrap();
+
+
+        writeln!(file, "{}", entry)?;
+
+        file.flush()?;
+
+        Ok(())
+    }
+}
+
+// I tried to create a WAL implementation from a golang package.
+// but It's fail because Go and Rust has really different mechanism
 // #[derive(Debug)]
 // pub enum LogFormat {
 //     Binary,
@@ -33,16 +57,16 @@ use std::{
 //     Closed,
 // }
 
-pub struct Log {
-    pub mu: Mutex<()>,
-    pub path: String,
-    // opts: Options,
-    pub closed: bool,
-    pub corrupt: bool,
-    pub log_file: File,
-    pub first_index: u64,
-    pub last_index: u64,
-}
+// pub struct Log {
+//     pub mu: Mutex<()>,
+//     pub path: String,
+//     // opts: Options,
+//     pub closed: bool,
+//     pub corrupt: bool,
+//     pub log_file: File,
+//     pub first_index: u64,
+//     pub last_index: u64,
+// }
 
 // impl Options {
 //     fn default() -> Self {
@@ -58,31 +82,31 @@ pub struct Log {
 //     }
 // }
 
-impl Log {
-    pub fn write(&mut self) -> io::Result<()> {
-        let lock: Result<MutexGuard<()>, _> = self.mu.try_lock();
-        match lock {
-            Ok(_lock) => {
-                // Get the current system time
-                let current_time = SystemTime::now();
+// impl Log {
+//     pub fn write(&mut self) -> io::Result<()> {
+//         let lock: Result<MutexGuard<()>, _> = self.mu.try_lock();
+//         match lock {
+//             Ok(_lock) => {
+//                 // Get the current system time
+//                 let current_time = SystemTime::now();
 
-                // Calculate the duration since the Unix epoch
-                let duration_since_epoch = current_time
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Time went backwards");
+//                 // Calculate the duration since the Unix epoch
+//                 let duration_since_epoch = current_time
+//                     .duration_since(UNIX_EPOCH)
+//                     .expect("Time went backwards");
 
-                // Get the timestamp in seconds
-                let timestamp_seconds = duration_since_epoch.as_secs();
-                let timestamp_str = format!("Timestamp: {}\n", timestamp_seconds);
-                self.log_file.write_all(timestamp_str.as_bytes())?;
-                Ok(())
-            }
-            Err(_) => Err(io::Error::new(
-                io::ErrorKind::WouldBlock,
-                "Mutex is already locked",
-            )),
-        }
-    }
+//                 // Get the timestamp in seconds
+//                 let timestamp_seconds = duration_since_epoch.as_secs();
+//                 let timestamp_str = format!("Timestamp: {}\n", timestamp_seconds);
+//                 self.log_file.write_all(timestamp_str.as_bytes())?;
+//                 Ok(())
+//             }
+//             Err(_) => Err(io::Error::new(
+//                 io::ErrorKind::WouldBlock,
+//                 "Mutex is already locked",
+//             )),
+//         }
+//     }
 
     // pub fn open(path: &str, opt: Option<Options>){
     //     let mut opts = opt;
@@ -98,4 +122,4 @@ impl Log {
     //     };
 
     // }
-}
+// }

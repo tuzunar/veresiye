@@ -1,42 +1,15 @@
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
+use std::sync::Arc;
 
 mod wal;
 
 fn main() {
-    let log_instance = Arc::new(Mutex::new(wal::Log {
-        mu: Mutex::new(()),
-        path: String::from("log"),
-        closed: false,
-        corrupt: false,
-        log_file: std::fs::File::create("log").expect("Error creating File"),
-        first_index: 0,
-        last_index: 0,
-    }));
+    let wal = Arc::new(wal::Log::new("./log").unwrap());
 
-    let thread1 = thread::spawn({
-        let log_instance = Arc::clone(&log_instance);
-        move || {
-            let mut log_instance = log_instance.lock().unwrap();
-            match log_instance.write() {
-                Ok(_) => println!("Data writen without error"),
-                Err(e) => eprintln!("Error: {}", e),
-            };
-        }
-    });
-    let thread2 = thread::spawn({
-        let log_instance = Arc::clone(&log_instance);
-        move || {
-            let mut log_instance = log_instance.lock().unwrap();
-            match log_instance.write() {
-                Ok(_) => println!("Data writen without error"),
-                Err(e) => eprintln!("Error: {}", e),
-            };
-        }
-    });
+    let entries = vec!["hello", "from", "wal", "implementation"];
 
-    thread1.join().unwrap();
-    thread2.join().unwrap();
+    for entry in entries {
+        if let Err(err) = wal.append(entry) {
+            eprintln!("Error writing to log: {}", err)
+        }
+    }
 }
