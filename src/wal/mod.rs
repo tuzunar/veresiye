@@ -1,8 +1,23 @@
 use std::{fs::{File, OpenOptions}, io::{self, Write}, sync::Mutex};
 
-pub struct Log {
-    file: Mutex<File>
+enum LogFormat {
+    Binary,
+    JSON
 }
+
+const BINARY: LogFormat = LogFormat::Binary;
+
+const JSON: LogFormat = LogFormat::JSON; 
+
+pub struct Log {
+    corrupt: bool,
+    file: Mutex<File>,
+    log_format: LogFormat,
+    first_index: u64,
+    last_index: u64
+}
+
+
 
 impl Log {
     pub fn new(path: &str) -> io::Result<Self> {
@@ -12,7 +27,7 @@ impl Log {
         .append(true)
         .open(path)?;
 
-        Ok(Log { file: Mutex::new(file) })
+        Ok(Log { file: Mutex::new(file), corrupt: false, first_index: 0, last_index: 0, log_format: BINARY })
     }
 
     pub fn append(&self, entry: &str) -> io::Result<()> { 
@@ -25,6 +40,8 @@ impl Log {
 
         Ok(())
     }
+
+
 }
 
 // I tried to create a WAL implementation from a golang package.
