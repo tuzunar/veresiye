@@ -1,13 +1,12 @@
-use std::{ fs::{File, OpenOptions}, io::{self, Write}, path::{Path, PathBuf}, sync::Mutex};
-use std::io::{Result};
+use std::{fs::{File, OpenOptions}, io::{self, Write, Result}, path::Path, sync::Mutex};
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
 pub struct Segment {
-    sequence: u64,
 
     file: Mutex<File>,
 
+    entry_number: usize,
     entry_limit: usize,
 }
 
@@ -24,7 +23,7 @@ impl Segment {
             .open(&fname)?;
 
         Ok(Segment{
-             sequence,
+             entry_number: 0,
              entry_limit: limit,
              file: Mutex::new(file)
         })
@@ -48,8 +47,14 @@ impl Segment {
 
         file.flush()?;
 
+        self.entry_number += 1;
+
         Ok(())
 
+    }
+
+    pub fn space(&self) -> usize {
+        self.entry_limit - self.entry_number
     }
 }
 

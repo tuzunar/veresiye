@@ -1,16 +1,17 @@
-use std::{fs::{create_dir_all, write, OpenOptions}, io::{self, Error, ErrorKind, Write}, path::Path, str::from_utf8, sync::Mutex};
+use std::{fs::create_dir_all, io::{self, Error, ErrorKind, Result}, path::Path};
 
 use crate::segment::Segment;
 
 
 pub struct Log {
     segments: Vec<Segment>,
-    segment_size: u64,
+    next_segment: u64,
     path: String
 }
 
 impl Log {
-    pub fn open(segment_size: u64, path: &str) -> io::Result<Log> {
+    pub fn open( path: &str) -> io::Result<Log> {
+        let mut read_segment: u64 = 1;
         let p = Path::new(path);
         if !p.exists() {
             create_dir_all(&p)?;
@@ -23,28 +24,49 @@ impl Log {
 
         let mut segments:Vec<Segment> = Vec::with_capacity(10);
 
-        loop {
-            match Segment::open(path, 1, 100, true) {
+            match Segment::open(path, read_segment, 2, true) {
                 Ok(s) => segments.push(s),
-                Err(ref e) if e.kind() == ErrorKind::NotFound => break,
+                //Err(ref e) if e.kind() == ErrorKind::NotFound => break,
                 Err(e) => return Err(e)
             }
-        }
+            read_segment += 1;
 
 
 
         
-        Ok(Log { segments, segment_size, path: String::from(path)})
+        Ok(Log { segments, next_segment: read_segment, path: String::from(path)})
     }
 
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
+        self.allocate(1)?;
         let segment  = self.segments.last_mut().unwrap();
         segment.write(entry)?;
         Ok(())
     }
 
     fn allocate(&mut self, n: usize) -> Result<usize> {
+        match self.segments.last_mut() {
+            Some(ref s) if s.space() > 0 => {
+                let space = s.space();
 
+                return if space > n {Ok(n)} else {Ok(space)}
+            },
+
+            Some(ss) => {
+                println!("{}", ss.space())
+            },
+
+            None => {}
+        }
+
+        let new_segment = Segment::open(&self.path, self.next_segment, 2, true)?;
+        println!("code is here");
+        let space = new_segment.space();
+
+        self.next_segment += 1;
+        self.segments.push(new_segment);
+
+        if space > n {Ok(n)} else {Ok(space)}
     }
 
 }
