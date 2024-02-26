@@ -1,48 +1,54 @@
-use std::{fs::{File, OpenOptions}, io::{self, Write}, sync::Mutex};
+use std::{fs::{create_dir_all, write, OpenOptions}, io::{self, Error, ErrorKind, Write}, path::Path, str::from_utf8, sync::Mutex};
 
-enum LogFormat {
-    Binary,
-    JSON
-}
+use crate::segment::Segment;
 
-const BINARY: LogFormat = LogFormat::Binary;
-
-const JSON: LogFormat = LogFormat::JSON; 
 
 pub struct Log {
-    corrupt: bool,
-    file: Mutex<File>,
-    log_format: LogFormat,
-    first_index: u64,
-    last_index: u64
+    segments: Vec<Segment>,
+    segment_size: u64,
+    path: String
 }
 
-
-
 impl Log {
-    pub fn new(path: &str) -> io::Result<Self> {
-        let file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .append(true)
-        .open(path)?;
+    pub fn open(segment_size: u64, path: &str) -> io::Result<Log> {
+        let p = Path::new(path);
+        if !p.exists() {
+            create_dir_all(&p)?;
+        }
 
-        Ok(Log { file: Mutex::new(file), corrupt: false, first_index: 0, last_index: 0, log_format: BINARY })
+        if !p.is_dir() {
+            return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
+        }
+
+
+        let mut segments:Vec<Segment> = Vec::with_capacity(10);
+
+        loop {
+            match Segment::open(path, 1, 100, true) {
+                Ok(s) => segments.push(s),
+                Err(ref e) if e.kind() == ErrorKind::NotFound => break,
+                Err(e) => return Err(e)
+            }
+        }
+
+
+
+        
+        Ok(Log { segments, segment_size, path: String::from(path)})
     }
 
-    pub fn append(&self, entry: &str) -> io::Result<()> { 
-        let mut file = self.file.lock().unwrap();
-
-
-        writeln!(file, "{}", entry)?;
-
-        file.flush()?;
-
+    pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
+        let segment  = self.segments.last_mut().unwrap();
+        segment.write(entry)?;
         Ok(())
     }
 
+    fn allocate(&mut self, n: usize) -> Result<usize> {
+
+    }
 
 }
+
 
 // I tried to create a WAL implementation from a golang package.
 // but It's fail because Go and Rust has really different mechanism
