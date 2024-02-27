@@ -24,7 +24,7 @@ impl Log {
 
         let mut segments:Vec<Segment> = Vec::with_capacity(10);
 
-            match Segment::open(path, read_segment, 2, true) {
+            match Segment::open(path, read_segment, 10000, true) {
                 Ok(s) => segments.push(s),
                 //Err(ref e) if e.kind() == ErrorKind::NotFound => break,
                 Err(e) => return Err(e)
@@ -52,15 +52,12 @@ impl Log {
                 return if space > n {Ok(n)} else {Ok(space)}
             },
 
-            Some(ss) => {
-                println!("{}", ss.space())
-            },
+            Some(_) => {},
 
             None => {}
         }
 
-        let new_segment = Segment::open(&self.path, self.next_segment, 2, true)?;
-        println!("code is here");
+        let new_segment = Segment::open(&self.path, self.next_segment, 10000, true)?;
         let space = new_segment.space();
 
         self.next_segment += 1;
