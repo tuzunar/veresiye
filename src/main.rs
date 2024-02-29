@@ -17,7 +17,7 @@ fn main() {
         "limeyo",
     ];
 
-    for n in 1..=110000 {
+    for n in 1..=10000 {
         let entry = format!("Entry number is {}", n);
         let _ = wal.write(entry.as_bytes());
     }

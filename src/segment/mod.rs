@@ -3,6 +3,7 @@ use std::{
     io::{self, BufRead, BufReader, Result, Write},
     path::Path,
     sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
@@ -16,7 +17,7 @@ pub struct Segment {
 
 impl Segment {
     pub fn new(path: String, limit: usize) -> Result<Segment> {
-        let file = File::open(path)?;
+        let file = OpenOptions::new().write(true).read(true).open(path)?;
         let reader = BufReader::new(&file);
         let line_count = reader.lines().count();
 
@@ -26,17 +27,24 @@ impl Segment {
             file: Mutex::new(file),
         })
     }
-    pub fn open(dir: &str, sequence: u64, mut limit: usize, create: bool) -> Result<Segment> {
-        if limit == 0 {
-            limit = DEFAULT_ENTRY_LIMIT;
-        }
+    pub fn open(dir: &str, sequence: u64, limit: usize, create: bool) -> Result<Segment> {
+        let created_at = format!(
+            "{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
         let fname = Path::new(dir).join(segment_name(sequence));
-        let file = OpenOptions::new()
+        let mut file = OpenOptions::new()
             .create(create)
             .read(true)
             .write(true)
             .open(&fname)?;
-
+        let trademarks: [String; 2] = [String::from("segments"), String::from(created_at)];
+        for value in trademarks {
+            writeln!(file, "{:?}", value).unwrap();
+        }
         Ok(Segment {
             entry_number: 0,
             entry_limit: get_entry_limit(limit),
@@ -80,6 +88,6 @@ fn get_entry_limit(limit: usize) -> usize {
         println!("Entry limit must be greater than zero");
         DEFAULT_ENTRY_LIMIT
     } else {
-        limit
+        limit + 2
     }
 }
