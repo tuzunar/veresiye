@@ -1,16 +1,20 @@
-use std::{fmt::format, fs::{self, create_dir_all, read_dir, File}, io::{self, BufReader, Error, ErrorKind, Result}, path::Path};
+use std::{
+    fmt::format,
+    fs::{self, create_dir_all, read_dir, File},
+    io::{self, BufReader, Error, ErrorKind, Result},
+    path::Path,
+};
 
 use crate::segment::Segment;
-
 
 pub struct Log {
     segments: Vec<Segment>,
     next_segment: u64,
-    path: String
+    path: String,
 }
 
 impl Log {
-    pub fn open( path: &str) -> io::Result<Log> {
+    pub fn open(path: &str) -> io::Result<Log> {
         let mut read_segment: u64 = 1;
         let p = Path::new(path);
         if !p.exists() {
@@ -21,23 +25,40 @@ impl Log {
             return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
         }
 
+        let mut segments: Vec<Segment> = Vec::with_capacity(10);
 
-        let mut segments:Vec<Segment> = Vec::with_capacity(10);
+        let dir = read_dir(path).unwrap();
+        let dir_length = &dir.count();
 
+        if dir_length >= &usize::try_from(1).unwrap() {
+            for file in read_dir(path).unwrap() {
+                let file_path = format!("{}", file.unwrap().path().display());
+                match Segment::new(String::from(file_path), 10000) {
+                    Ok(s) => segments.push(s),
+
+                    Err(e) => return Err(e),
+                }
+                read_segment += 1;
+            }
+        } else {
             match Segment::open(path, read_segment, 10000, true) {
                 Ok(s) => segments.push(s),
                 //Err(ref e) if e.kind() == ErrorKind::NotFound => break,
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             }
             read_segment += 1;
+        }
 
-
-        Ok(Log { segments, next_segment: read_segment, path: String::from(path)})
+        Ok(Log {
+            segments,
+            next_segment: read_segment,
+            path: String::from(path),
+        })
     }
 
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
         self.allocate(1)?;
-        let segment  = self.segments.last_mut().unwrap();
+        let segment = self.segments.last_mut().unwrap();
         segment.write(entry)?;
         Ok(())
     }
@@ -47,10 +68,10 @@ impl Log {
             Some(ref s) if s.space() > 0 => {
                 let space = s.space();
 
-                return if space > n {Ok(n)} else {Ok(space)}
-            },
+                return if space > n { Ok(n) } else { Ok(space) };
+            }
 
-            Some(_) => {},
+            Some(_) => {}
 
             None => {}
         }
@@ -61,7 +82,11 @@ impl Log {
         self.next_segment += 1;
         self.segments.push(new_segment);
 
-        if space > n {Ok(n)} else {Ok(space)}
+        if space > n {
+            Ok(n)
+        } else {
+            Ok(space)
+        }
     }
 
     pub fn read_all(self) {
@@ -74,14 +99,12 @@ impl Log {
             println!("{:?}", data);
         }
     }
-    
+
     fn load(self) {
         let files = read_dir(self.path).unwrap();
         let (startIdx, endIdx) = (-1, -1);
     }
-
 }
-
 
 // I tried to create a WAL implementation from a golang package.
 // but It's fail because Go and Rust has really different mechanism
@@ -164,18 +187,18 @@ impl Log {
 //         }
 //     }
 
-    // pub fn open(path: &str, opt: Option<Options>){
-    //     let mut opts = opt;
+// pub fn open(path: &str, opt: Option<Options>){
+//     let mut opts = opt;
 
-    //     match opts {
-    //         Some(p) => {
-    //             println!("Options: {:?}", p)
-    //         }
-    //         None => {
-    //             opts = Some(Options::default());
-    //             println!("{:?}", opts)
-    //         }
-    //     };
+//     match opts {
+//         Some(p) => {
+//             println!("Options: {:?}", p)
+//         }
+//         None => {
+//             opts = Some(Options::default());
+//             println!("{:?}", opts)
+//         }
+//     };
 
-    // }
+// }
 // }
