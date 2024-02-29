@@ -1,4 +1,4 @@
-use std::{fs::create_dir_all, io::{self, Error, ErrorKind, Result}, path::Path};
+use std::{fmt::format, fs::{self, create_dir_all, read_dir, File}, io::{self, BufReader, Error, ErrorKind, Result}, path::Path};
 
 use crate::segment::Segment;
 
@@ -32,8 +32,6 @@ impl Log {
             read_segment += 1;
 
 
-
-        
         Ok(Log { segments, next_segment: read_segment, path: String::from(path)})
     }
 
@@ -64,6 +62,22 @@ impl Log {
         self.segments.push(new_segment);
 
         if space > n {Ok(n)} else {Ok(space)}
+    }
+
+    pub fn read_all(self) {
+        let paths = fs::read_dir(self.path).unwrap();
+        let mut sorted_paths: Vec<_> = paths.map(|entry| entry.unwrap().path()).collect();
+        sorted_paths.sort();
+        for path in sorted_paths {
+            //println!("{}", path.display());
+            let data = fs::read_to_string(path).expect("Read error");
+            println!("{:?}", data);
+        }
+    }
+    
+    fn load(self) {
+        let files = read_dir(self.path).unwrap();
+        let (startIdx, endIdx) = (-1, -1);
     }
 
 }
