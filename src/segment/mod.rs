@@ -17,7 +17,18 @@ pub struct Segment {
 
 impl Segment {
     pub fn new(path: String, limit: usize) -> Result<Segment> {
-        let file = OpenOptions::new().write(true).read(true).open(path)?;
+        let file = OpenOptions::new().write(true).read(true).open(&path)?;
+        let path_parts: &Vec<&str> = &path.split("/").collect();
+
+        if path_parts[2].len() != 20 {
+            eprintln!("Wrong log file");
+        }
+
+        if Path::new(&path).is_dir() {
+            eprintln!("Wrong log file");
+        }
+
+
         let reader = BufReader::new(&file);
         let line_count = reader.lines().count();
 

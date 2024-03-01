@@ -1,7 +1,6 @@
 use std::{
-    fmt::format,
-    fs::{self, create_dir_all, read_dir, File},
-    io::{self, BufReader, Error, ErrorKind, Result},
+    fs::{self, create_dir_all, read_dir},
+    io::{self, Error, Result},
     path::Path,
 };
 
@@ -98,11 +97,6 @@ impl Log {
             let data = fs::read_to_string(path).expect("Read error");
             println!("{:?}", data);
         }
-    }
-
-    fn load(self) {
-        let files = read_dir(self.path).unwrap();
-        let (startIdx, endIdx) = (-1, -1);
     }
 }
 
