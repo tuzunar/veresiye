@@ -2,7 +2,7 @@ mod segment;
 mod wal;
 
 fn main() {
-    let mut wal = wal::Log::open("./log").unwrap();
+    let mut wal = wal::Log::open("./log", 1000).unwrap();
 
     let entries = vec![
         "hello",
@@ -17,7 +17,7 @@ fn main() {
         "limeyo",
     ];
 
-    for n in 1..=10 {
+    for n in 1..=1000 {
         let entry = format!("Entry number is {}", n);
         let _ = wal.write(entry.as_bytes());
     }

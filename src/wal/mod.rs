@@ -13,7 +13,7 @@ pub struct Log {
 }
 
 impl Log {
-    pub fn open(path: &str) -> io::Result<Log> {
+    pub fn open(path: &str, entry_limit: usize) -> io::Result<Log> {
         let mut read_segment: u64 = 1;
         let p = Path::new(path);
         if !p.exists() {
@@ -32,7 +32,7 @@ impl Log {
         if dir_length >= &usize::try_from(1).unwrap() {
             for file in read_dir(path).unwrap() {
                 let file_path = format!("{}", file.unwrap().path().display());
-                match Segment::new(String::from(file_path), 10000) {
+                match Segment::new(String::from(file_path), entry_limit) {
                     Ok(s) => segments.push(s),
 
                     Err(e) => return Err(e),
@@ -40,7 +40,7 @@ impl Log {
                 read_segment += 1;
             }
         } else {
-            match Segment::open(path, read_segment, 10000, true) {
+            match Segment::open(path, read_segment, entry_limit, true) {
                 Ok(s) => segments.push(s),
                 //Err(ref e) if e.kind() == ErrorKind::NotFound => break,
                 Err(e) => return Err(e),
