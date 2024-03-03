@@ -1,6 +1,6 @@
 use std::{
-    fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Result, Write},
+    fs::{read_to_string, File, OpenOptions},
+    io::{self, BufRead, BufReader, Read, Result, Write},
     path::Path,
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
@@ -8,6 +8,7 @@ use std::{
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
+#[derive(Debug)]
 pub struct Segment {
     file: Mutex<File>,
 
@@ -27,7 +28,6 @@ impl Segment {
         if Path::new(&path).is_dir() {
             eprintln!("Wrong log file");
         }
-
 
         let reader = BufReader::new(&file);
         let line_count = reader.lines().count();
@@ -61,6 +61,25 @@ impl Segment {
             entry_limit: get_entry_limit(limit),
             file: Mutex::new(file),
         })
+    }
+
+    pub fn read(&self) -> Result<String> {
+        let mut file = self.file.lock().expect("file lock error");
+        let mut content = Default::default();
+
+        file.read_to_string(&mut content)?;
+
+        println!("{} {}", &content, file.metadata().unwrap().len());
+        Ok(content)
+        // let file =
+        //     File::open("/Users/canertuzunar/Desktop/project/veresiye/log/00000000000000000001")?;
+        // let mu = Mutex::new(&file);
+
+        // let mut locked_file = mu.lock().expect("file lock error");
+
+        // locked_file.read_to_string(&mut content)?;
+
+        // Ok(content)
     }
 
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {

@@ -1,7 +1,8 @@
 use std::{
     fs::{self, create_dir_all, read_dir},
     io::{self, Error, Result},
-    path::Path,
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use crate::segment::Segment;
@@ -88,15 +89,21 @@ impl Log {
         }
     }
 
-    pub fn read_all(self) {
+    pub fn list_logs(self) -> Vec<PathBuf> {
         let paths = fs::read_dir(self.path).unwrap();
-        let mut sorted_paths: Vec<_> = paths.map(|entry| entry.unwrap().path()).collect();
+        let mut sorted_paths: Vec<PathBuf> = paths.map(|entry| entry.unwrap().path()).collect();
         sorted_paths.sort();
-        for path in sorted_paths {
-            //println!("{}", path.display());
-            let data = fs::read_to_string(path).expect("Read error");
-            println!("{:?}", data);
-        }
+        sorted_paths
+
+        // for path in sorted_paths {
+        //     println!("{}", path.display());
+        // }
+    }
+    pub fn read(self, index: usize) -> Result<String> {
+        let shared_data = Arc::new(self.segments.get(index).unwrap());
+        let file = Arc::clone(&shared_data);
+        println!("{:?}", file);
+        file.read()
     }
 }
 

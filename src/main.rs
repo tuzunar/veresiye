@@ -1,8 +1,10 @@
+use rand::seq::index;
+
 mod segment;
 mod wal;
 
 fn main() {
-    let mut wal = wal::Log::open("./log", 1000).unwrap();
+    let mut wal = wal::Log::open("./log", 5).unwrap();
 
     let entries = vec![
         "hello",
@@ -17,9 +19,21 @@ fn main() {
         "limeyo",
     ];
 
-    for n in 1..=1000 {
-        let entry = format!("Entry number is {}", n);
-        let _ = wal.write(entry.as_bytes());
+    // for n in 1..=10 {
+    //     let entry = format!("Entry number is {}", n);
+    //     let _ = wal.write(entry.as_bytes());
+    // }
+
+    // let res = wal.list_logs();
+    // for (index, path) in res.iter().enumerate() {
+    //     println!("Index: {} Path: {}", index, path.display())
+    // }
+
+    let result = wal.read(0);
+
+    match result {
+        Ok(c) => println!("{}", c),
+        Err(e) => eprint!("{}", e),
     }
 
     /*for entry in entries {
