@@ -1,3 +1,5 @@
+use std::{fs::File, io::Read};
+
 use rand::seq::index;
 
 mod segment;

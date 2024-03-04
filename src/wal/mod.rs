@@ -99,11 +99,9 @@ impl Log {
         //     println!("{}", path.display());
         // }
     }
+
     pub fn read(self, index: usize) -> Result<String> {
-        let shared_data = Arc::new(self.segments.get(index).unwrap());
-        let file = Arc::clone(&shared_data);
-        println!("{:?}", file);
-        file.read()
+        self.segments.get(index).expect("Segment not found").read()
     }
 }
 

@@ -1,9 +1,5 @@
 use std::{
-    fs::{read_to_string, File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Result, Write},
-    path::Path,
-    sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
+    fs::{read_to_string, File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::Path, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
 };
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
@@ -65,21 +61,12 @@ impl Segment {
 
     pub fn read(&self) -> Result<String> {
         let mut file = self.file.lock().expect("file lock error");
-        let mut content = Default::default();
+        let mut content:String = String::new();
 
-        file.read_to_string(&mut content)?;
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_string(&mut content).expect("read to string error");
 
-        println!("{} {}", &content, file.metadata().unwrap().len());
         Ok(content)
-        // let file =
-        //     File::open("/Users/canertuzunar/Desktop/project/veresiye/log/00000000000000000001")?;
-        // let mu = Mutex::new(&file);
-
-        // let mut locked_file = mu.lock().expect("file lock error");
-
-        // locked_file.read_to_string(&mut content)?;
-
-        // Ok(content)
     }
 
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
