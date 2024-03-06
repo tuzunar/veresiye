@@ -1,8 +1,7 @@
 use std::{
-    fs::{self, create_dir_all, read_dir},
+    fs::{self, create_dir_all, read_dir, File},
     io::{self, Error, Result},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use crate::segment::Segment;
@@ -27,13 +26,19 @@ impl Log {
 
         let mut segments: Vec<Segment> = Vec::with_capacity(10);
 
-        let dir = read_dir(path).unwrap();
-        let dir_length = &dir.count();
-
-        if dir_length >= &usize::try_from(1).unwrap() {
-            for file in read_dir(path).unwrap() {
-                let file_path = format!("{}", file.unwrap().path().display());
-                match Segment::new(String::from(file_path), entry_limit) {
+        let mut dir: Vec<_> = read_dir(path)?.map(|entry| entry.unwrap()).collect();
+        dir.sort_by(|a, b| a.path().cmp(&b.path()));
+    
+        
+        if dir.len() >= usize::try_from(1).unwrap() {
+            for file in dir {
+                let file_path = format!("{}", &file.path().display());
+                let f = File::open(&file_path).unwrap();
+                match Segment::check_log_integrity(&f){
+                    Ok(_) => {},
+                    Err(e) => eprintln!("Error: {}", e)
+                };
+                match Segment::new(String::from(&file_path), entry_limit) {
                     Ok(s) => segments.push(s),
 
                     Err(e) => return Err(e),
@@ -76,9 +81,8 @@ impl Log {
             None => {}
         }
 
-        let new_segment = Segment::open(&self.path, self.next_segment, 10000, true)?;
+        let new_segment = Segment::open(&self.path, self.next_segment, self.segments.last_mut().unwrap().get_segment_limit(), true)?;
         let space = new_segment.space();
-
         self.next_segment += 1;
         self.segments.push(new_segment);
 
@@ -100,7 +104,7 @@ impl Log {
         // }
     }
 
-    pub fn read(self, index: usize) -> Result<String> {
+    pub fn read(&self, index: usize) -> Result<String> {
         self.segments.get(index).expect("Segment not found").read()
     }
 }
