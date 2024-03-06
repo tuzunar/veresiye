@@ -1,6 +1,8 @@
 use std::{
-    fs::{read_to_string, File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::Path, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
+    fs::{ File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::Path, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
 };
+
+use sha256::digest;
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
@@ -34,24 +36,15 @@ impl Segment {
             file: Mutex::new(file),
         })
     }
+
     pub fn open(dir: &str, sequence: u64, limit: usize, create: bool) -> Result<Segment> {
-        let created_at = format!(
-            "{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis()
-        );
         let fname = Path::new(dir).join(segment_name(sequence));
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .create(create)
             .read(true)
             .write(true)
             .open(&fname)?;
-        let trademarks: [String; 2] = [String::from("segments"), String::from(created_at)];
-        for value in trademarks {
-            writeln!(file, "{:?}", value).unwrap();
-        }
+
         Ok(Segment {
             entry_number: 0,
             entry_limit: get_entry_limit(limit),
@@ -71,7 +64,7 @@ impl Segment {
 
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
         let mut file = self.file.lock().unwrap();
-
+        let timestamp = get_timestamp();
         let entry_str = match std::str::from_utf8(entry) {
             Ok(s) => s,
             Err(e) => {
@@ -81,8 +74,9 @@ impl Segment {
                 ));
             }
         };
-
-        writeln!(file, "{:?}", entry_str)?;
+        let checksum = calculate_checksum(entry_str);
+        let log_entry = format!("{:?}#{}#{}#{}", timestamp, entry.len(), checksum.to_string(), entry_str);
+        writeln!(file, "{}", log_entry)?;
 
         file.flush()?;
 
@@ -94,7 +88,51 @@ impl Segment {
     pub fn space(&self) -> usize {
         self.entry_limit - self.entry_number
     }
+
+    pub fn get_segment_limit (&self) -> usize {
+        self.entry_limit
+    }
+
+    pub fn check_log_integrity(file: &File) -> Result<bool> {
+        let reader = BufReader::new(file);
+
+        for line in reader.lines() {
+            let entry = line?;
+            let log_parts: Vec<&str> = entry.split('#').collect();
+
+            if log_parts.len() != 4 {
+                return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Invalid WAL Entry"
+                        ))
+            }
+
+            let log_checksum = log_parts[2];
+            let log_data = log_parts[3];
+
+            
+            let control_checksum = calculate_checksum(log_data);
+            
+            if log_checksum != control_checksum {
+                return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Corrupted WAL Entry"
+                        ))
+            }
+        }
+        Ok(true)
+    }
 }
+
+fn calculate_checksum(data: &str) -> String {
+    format!("{:x?}", &digest(data))
+}
+
+fn get_timestamp() -> u128 {
+    let time = SystemTime::now();
+    time.duration_since(UNIX_EPOCH).expect("time error").as_millis() 
+}
+
 
 fn segment_name(index: u64) -> String {
     format!("{:020}", index)
@@ -102,9 +140,10 @@ fn segment_name(index: u64) -> String {
 
 fn get_entry_limit(limit: usize) -> usize {
     if limit <= 0 {
-        println!("Entry limit must be greater than zero");
+        println!("Entry limit must be greater than zero. Default entry limit is 1024");
         DEFAULT_ENTRY_LIMIT
     } else {
-        limit + 2
+        limit
     }
 }
+
