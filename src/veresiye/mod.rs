@@ -1,10 +1,11 @@
 use std::{ fs::create_dir_all, io::{self, Error, Result}, path::Path};
 
-use crate::wal::{self, Log};
+use crate::{table::{self, Table}, wal::{self, Log}};
 
 pub struct Veresiye {
         wal: Log,
-        path: String
+        path: String,
+        sstable: Table 
 }
 
 impl Veresiye {
@@ -18,16 +19,24 @@ impl Veresiye {
             return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
         }
 
+        let sstable = table::Table::new("./data/db").unwrap();
         let  wal = wal::Log::open("./log", 10000).unwrap();
         Ok(Veresiye {
             wal,
-            path
+            path,
+            sstable
         })
+    }
+
+    pub fn get(&mut self, key: &str) -> Result<String> {
+        let result = self.sstable.get(key).expect("get error").unwrap();
+        Ok(result)
     }
 
     pub fn set(&mut self, key: &str, value: &str) {
         let operation = format!("SET, {}, {}", key, value);
         self.wal.write(operation.as_bytes()).unwrap();
+        self.sstable.insert(key, value).unwrap();
     }
 
     pub fn recover() {

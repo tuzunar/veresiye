@@ -2,26 +2,24 @@
 mod segment;
 mod wal;
 mod veresiye;
+mod table;
 
 fn main() {
-    let mut wal = wal::Log::open("./log", 5).unwrap();
+    
+    let mut db = veresiye::Veresiye::new(String::from("./data")).unwrap();
 
-     for n in 1..=100 {
-         let entry = format!("Entry number is {}", n);
-         let _ = wal.write(entry.as_bytes());
-    }
+    db.set("key1", "value2");
+
+    match db.get("key1") {
+        Ok(v) => println!("{}", v),
+        Err(e) => eprintln!("Error: {}", e)
+    };
 
     // let res = wal.list_logs();
     // for (index, path) in res.iter().enumerate() {
     //     println!("Index: {} Path: {}", index, path.display())
     // }
 
-    let result = wal.read(0);
-
-    match result {
-        Ok(c) => println!("{}", c),
-        Err(e) => eprint!("{}", e),
-    }
 
     /*for entry in entries {
          wal.write(entry.as_bytes());
