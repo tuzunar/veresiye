@@ -108,16 +108,8 @@ impl Segment {
             }
 
             let log_checksum = log_parts[2];
-            let log_data: Vec<u8> =  log_parts[3].split(", ")
-            .filter_map(|s| {
-                if let Ok(byte) = s.trim_matches(|c| c == '[' || c == ']').parse::<u8>() {
-                    Some(byte)
-                } else {
-                    None
-                }
-            })
-            .collect();
-            println!("{:?}", &log_data); 
+            let log_data: Vec<u8> =  parse_byte(log_parts[3]);
+            
             let control_checksum = calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
             println!("controls {}, {}", log_checksum, control_checksum); 
             if log_checksum != control_checksum {
@@ -132,7 +124,6 @@ impl Segment {
 }
 
 fn calculate_checksum(data: &str) -> String {
-   println!("{}", data);
     format!("{:x?}", &digest(data))
 }
 
@@ -156,7 +147,6 @@ fn get_entry_limit(limit: usize) -> usize {
 }
 
 fn convert_byte_to_str(entry: &[u8]) -> io::Result<&str> {
-   println!("byte to str {:?}", &entry);
    let entry_str = match std::str::from_utf8(&entry) {
       Ok(s) => s,
       Err(e) => {
@@ -168,4 +158,18 @@ fn convert_byte_to_str(entry: &[u8]) -> io::Result<&str> {
    };
    println!("value {}", entry_str);
    Ok(entry_str)
+}
+
+fn parse_byte(value: &str) -> Vec<u8> {
+   let bytes: Vec<u8> =  value.split(", ")
+   .filter_map(|s| {
+         if let Ok(byte) = s.trim_matches(|c| c == '[' || c == ']').parse::<u8>() {
+            Some(byte)
+         } else {
+            None
+         }
+   })
+   .collect();
+
+   bytes
 }
