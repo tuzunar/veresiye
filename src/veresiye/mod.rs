@@ -1,4 +1,4 @@
-use std::{ fs::create_dir_all, io::{self, Error, Result}, path::Path};
+use std::{ fs::create_dir_all, io::{self, Error, Result}, path::Path, time::{SystemTime, UNIX_EPOCH}};
 
 use crate::{table::{self, Table}, wal::{self, Log}};
 
@@ -7,6 +7,9 @@ pub struct Veresiye {
         path: String,
         sstable: Table 
 }
+
+
+/// new sstables always write third level 
 
 impl Veresiye {
     pub fn new(path: String) -> Result<Veresiye> {
@@ -19,7 +22,11 @@ impl Veresiye {
             return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
         }
 
-        let sstable = table::Table::new("./data/db").unwrap();
+        let sstable_name = format!("table_third_{}", get_timestamp());
+
+        let sstable_path = format!("./data/{}", sstable_name);
+
+        let sstable = table::Table::new(&sstable_path).unwrap();
         let  wal = wal::Log::open("./log", 10000).unwrap();
         Ok(Veresiye {
             wal,
@@ -44,3 +51,7 @@ impl Veresiye {
     }
 }
 
+fn get_timestamp() -> u128 {
+   let time = SystemTime::now();
+   time.duration_since(UNIX_EPOCH).expect("time error").as_millis() 
+}

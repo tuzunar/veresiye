@@ -75,7 +75,7 @@ impl Segment {
             }
         };
         let checksum = calculate_checksum(entry_str);
-        let log_entry = format!("{:?}#{}#{}#{}", timestamp, entry.len(), checksum.to_string(), entry_str);
+        let log_entry = format!("{:?}#{}#{}#{:?}", timestamp, entry.len(), checksum, entry);
         writeln!(file, "{}", log_entry)?;
 
         file.flush()?;
@@ -108,11 +108,18 @@ impl Segment {
             }
 
             let log_checksum = log_parts[2];
-            let log_data = log_parts[3];
-
-            
-            let control_checksum = calculate_checksum(log_data);
-            
+            let log_data: Vec<u8> =  log_parts[3].split(", ")
+            .filter_map(|s| {
+                if let Ok(byte) = s.trim_matches(|c| c == '[' || c == ']').parse::<u8>() {
+                    Some(byte)
+                } else {
+                    None
+                }
+            })
+            .collect();
+            println!("{:?}", &log_data); 
+            let control_checksum = calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
+            println!("controls {}, {}", log_checksum, control_checksum); 
             if log_checksum != control_checksum {
                 return Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -125,6 +132,7 @@ impl Segment {
 }
 
 fn calculate_checksum(data: &str) -> String {
+   println!("{}", data);
     format!("{:x?}", &digest(data))
 }
 
@@ -147,3 +155,17 @@ fn get_entry_limit(limit: usize) -> usize {
     }
 }
 
+fn convert_byte_to_str(entry: &[u8]) -> io::Result<&str> {
+   println!("byte to str {:?}", &entry);
+   let entry_str = match std::str::from_utf8(&entry) {
+      Ok(s) => s,
+      Err(e) => {
+            return Err(io::Error::new(
+               io::ErrorKind::InvalidData,
+               format!("Write error: {}", e),
+            ));
+      }
+   };
+   println!("value {}", entry_str);
+   Ok(entry_str)
+}
