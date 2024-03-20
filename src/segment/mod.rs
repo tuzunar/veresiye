@@ -111,7 +111,6 @@ impl Segment {
             let log_data: Vec<u8> =  parse_byte(log_parts[3]);
             
             let control_checksum = calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
-            println!("controls {}, {}", log_checksum, control_checksum); 
             if log_checksum != control_checksum {
                 return Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -131,7 +130,6 @@ fn get_timestamp() -> u128 {
     let time = SystemTime::now();
     time.duration_since(UNIX_EPOCH).expect("time error").as_millis() 
 }
-
 
 fn segment_name(index: u64) -> String {
     format!("{:020}", index)
@@ -156,7 +154,6 @@ fn convert_byte_to_str(entry: &[u8]) -> io::Result<&str> {
             ));
       }
    };
-   println!("value {}", entry_str);
    Ok(entry_str)
 }
 

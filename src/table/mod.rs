@@ -22,7 +22,9 @@ impl Table {
     pub fn insert(&mut self, key: &str, value: &str) -> io::Result<()> {
         let position = self.file.metadata()?.len();
 
-        self.file.write_all(value.as_bytes())?;
+        let data_entry = format!("{}:{},", key, value);
+
+        self.file.write_all(data_entry.as_bytes())?;
         self.index.insert(key.to_string(), position);
         Ok(())
     }
@@ -38,6 +40,5 @@ impl Table {
             Ok(None)
         }
     }
-
 }
 

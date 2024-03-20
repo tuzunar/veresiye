@@ -8,22 +8,14 @@ fn main() {
     
     let mut db = veresiye::Veresiye::new(String::from("./data")).unwrap();
 
-    db.set("key1", "value2");
+    db.set("key3", "value3");
 
-    match db.get("key1") {
-        Ok(v) => println!("{}", v),
-        Err(e) => eprintln!("Error: {}", e)
-    };
+    println!("{:?}", db.get_all_sstable_dir());
 
-    // let res = wal.list_logs();
-    // for (index, path) in res.iter().enumerate() {
-    //     println!("Index: {} Path: {}", index, path.display())
-    // }
+   //  match db.get("key1") {
+   //      Ok(v) => println!("{}", v),
+   //      Err(e) => eprintln!("Error: {}", e)
+   //  };
 
-
-    /*for entry in entries {
-         wal.write(entry.as_bytes());
-    }*/
-
-    // wal.read_all();
+    db.compact().unwrap();
 }
