@@ -2,7 +2,9 @@ use std::{
     fs::{ File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::Path, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
 };
 
-use sha256::digest;
+use crate::util;
+
+
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
@@ -38,7 +40,7 @@ impl Segment {
     }
 
     pub fn open(dir: &str, sequence: u64, limit: usize, create: bool) -> Result<Segment> {
-        let fname = Path::new(dir).join(segment_name(sequence));
+        let fname = Path::new(dir).join(util::segment_name(sequence));
         let file = OpenOptions::new()
             .create(create)
             .read(true)
@@ -64,7 +66,7 @@ impl Segment {
 
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
         let mut file = self.file.lock().unwrap();
-        let timestamp = get_timestamp();
+        let timestamp = util::get_timestamp();
         let entry_str = match std::str::from_utf8(entry) {
             Ok(s) => s,
             Err(e) => {
@@ -74,7 +76,7 @@ impl Segment {
                 ));
             }
         };
-        let checksum = calculate_checksum(entry_str);
+        let checksum = util::calculate_checksum(entry_str);
         let log_entry = format!("{:?}#{}#{}#{:?}", timestamp, entry.len(), checksum, entry);
         writeln!(file, "{}", log_entry)?;
 
@@ -89,8 +91,26 @@ impl Segment {
         self.entry_limit - self.entry_number
     }
 
-    pub fn get_segment_limit (&self) -> usize {
+    pub fn get_segment_limit(&self) -> usize {
         self.entry_limit
+    }
+
+    pub fn get_segment_path(&self) {
+      let segment = &self.file.lock().unwrap();
+
+      segment.
+
+      let path = match segment.metadata() {
+         Ok(metadata) => metadata.can
+      }
+    }
+
+    pub fn get_segment_created_time(&self) -> Result<SystemTime> {
+      let segment = &self.file.lock().unwrap();
+
+      let created_at = segment.metadata().unwrap().created().expect("cannot read create time of the segment");
+
+      Ok(created_at)
     }
 
     pub fn check_log_integrity(file: &File) -> Result<bool> {
@@ -110,7 +130,7 @@ impl Segment {
             let log_checksum = log_parts[2];
             let log_data: Vec<u8> =  parse_byte(log_parts[3]);
             
-            let control_checksum = calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
+            let control_checksum = util::calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
             if log_checksum != control_checksum {
                 return Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -122,18 +142,6 @@ impl Segment {
     }
 }
 
-fn calculate_checksum(data: &str) -> String {
-    format!("{:x?}", &digest(data))
-}
-
-fn get_timestamp() -> u128 {
-    let time = SystemTime::now();
-    time.duration_since(UNIX_EPOCH).expect("time error").as_millis() 
-}
-
-fn segment_name(index: u64) -> String {
-    format!("{:020}", index)
-}
 
 fn get_entry_limit(limit: usize) -> usize {
     if limit <= 0 {

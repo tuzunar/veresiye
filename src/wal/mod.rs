@@ -1,7 +1,7 @@
 use std::{
-    fs::{self, create_dir_all, read_dir, File},
+    fs::{self, create_dir_all, read_dir, remove_file, File},
     io::{self, Error, Result},
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, time::{Duration, SystemTime},
 };
 
 use crate::segment::Segment;
@@ -11,6 +11,9 @@ pub struct Log {
     next_segment: u64,
     path: String,
 }
+
+
+const LOG_RETENTION_MS: u64 = 60480000;
 
 impl Log {
     pub fn open(path: &str, entry_limit: usize) -> io::Result<Log> {
@@ -93,8 +96,18 @@ impl Log {
         }
     }
 
-    pub fn list_logs(self) -> Vec<PathBuf> {
-        let paths = fs::read_dir(self.path).unwrap();
+
+    pub fn remove_logs(&self) {
+      for segment in &self.segments {
+         let created_at = &segment.get_segment_created_time().unwrap();
+         if is_older_than_one_week(*created_at) {
+            remove_file(segment.f)
+         }
+      }
+    }
+
+    pub fn list_logs(&self) -> Vec<PathBuf> {
+        let paths = fs::read_dir(&self.path).unwrap();
         let mut sorted_paths: Vec<PathBuf> = paths.map(|entry| entry.unwrap().path()).collect();
         sorted_paths.sort();
         sorted_paths
@@ -107,6 +120,17 @@ impl Log {
     pub fn read(&self, index: usize) -> Result<String> {
         self.segments.get(index).expect("Segment not found").read()
     }
+}
+
+fn is_older_than_one_week(time: SystemTime) -> bool {
+   let current_time = SystemTime::now();
+
+   if let Ok(duration) = current_time.duration_since(time) {
+      let one_week = Duration::from_secs(60 * 60 * 24 * 7);
+
+      duration > one_week
+   } else { false }   
+
 }
 
 // I tried to create a WAL implementation from a golang package.

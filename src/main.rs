@@ -3,6 +3,7 @@ mod segment;
 mod wal;
 mod veresiye;
 mod table;
+mod util;
 
 fn main() {
     

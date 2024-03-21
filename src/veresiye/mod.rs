@@ -65,8 +65,6 @@ impl Veresiye {
 
          let data: Vec<&str> = content.split(",").collect();
 
-         println!("{:?}", data);
-
          for entries in data {
             if entries.is_empty() {
                continue; 
