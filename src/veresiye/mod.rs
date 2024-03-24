@@ -22,7 +22,7 @@ impl Veresiye {
             return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
         }
 
-        let sstable_name = format!("table_third_{}", get_timestamp());
+        let sstable_name = format!("level_zero_{}", get_timestamp());
 
         let sstable_path = format!("./{}/{}", p.display(), sstable_name);
 
@@ -57,30 +57,38 @@ impl Veresiye {
       let mut merged_table: BTreeMap<String, String>= BTreeMap::new();
 
       for dir in dirs {
-         let mut file = OpenOptions::new().read(true).open(dir).unwrap();
-         let mut content: String = String::new();
+         let path_string: &String = &dir.clone().into_os_string().into_string().unwrap();
+         let leveled_sstable: Vec<&str> = path_string.split("/").collect();
+         let third_label: Vec<&str> = leveled_sstable[2].split("_").collect();
 
-         file.seek(SeekFrom::Start(0)).unwrap();
-         file.read_to_string(&mut content).expect("sstable read error");
+         if third_label[0] == "level" && third_label[1] == "zero" {
+            let mut file = OpenOptions::new().read(true).open(&dir).unwrap();
+            let mut content: String = String::new();
+            file.seek(SeekFrom::Start(0)).unwrap();
+            file.read_to_string(&mut content).expect("sstable read error");
 
-         let data: Vec<&str> = content.split(",").collect();
+            let data: Vec<&str> = content.split(",").collect();
 
-         for entries in data {
-            if entries.is_empty() {
-               continue; 
+            for entries in data {
+                  if entries.is_empty() {
+                     continue; 
+                  }
+                  let entry: Vec<&str> = entries.split(":").collect();
+                  merged_table.insert(String::from(entry[0]), String::from(entry[1]));
+               }
             }
-            let entry: Vec<&str> = entries.split(":").collect();
-            println!("dd {:?}", entry);
-            merged_table.insert(String::from(entry[0]), String::from(entry[1]));
-         }
-      }
 
-      let mut output_file = File::create("./data/compaction")?;
-      for (key, value) in merged_table {
-         writeln!(output_file, "{}:{},", key, value)?;
-      }
+            let mut output_file = File::create("./data/compaction")?;
+            for (key, value) in &merged_table {
+               writeln!(output_file, "{}:{},", key, value)?;
+            }
+         }
 
       Ok(())
+    }
+
+    pub fn cleanup_logs(self) {
+      self.wal.remove_logs();
     }
 
     pub fn recover() {

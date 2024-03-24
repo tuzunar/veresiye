@@ -1,5 +1,5 @@
 use std::{
-    fs::{ File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::Path, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
+    fs::{ File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::{Path, PathBuf}, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
 };
 
 use crate::util;
@@ -11,7 +11,7 @@ const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 #[derive(Debug)]
 pub struct Segment {
     file: Mutex<File>,
-
+    file_path: PathBuf,   
     entry_number: usize,
     entry_limit: usize,
 }
@@ -36,6 +36,7 @@ impl Segment {
             entry_limit: get_entry_limit(limit),
             entry_number: line_count,
             file: Mutex::new(file),
+            file_path: PathBuf::from(path)
         })
     }
 
@@ -51,6 +52,7 @@ impl Segment {
             entry_number: 0,
             entry_limit: get_entry_limit(limit),
             file: Mutex::new(file),
+            file_path: PathBuf::from(fname)
         })
     }
 
@@ -95,14 +97,8 @@ impl Segment {
         self.entry_limit
     }
 
-    pub fn get_segment_path(&self) {
-      let segment = &self.file.lock().unwrap();
-
-      segment.
-
-      let path = match segment.metadata() {
-         Ok(metadata) => metadata.can
-      }
+    pub fn get_segment_path(&self) -> &PathBuf {
+      &self.file_path
     }
 
     pub fn get_segment_created_time(&self) -> Result<SystemTime> {
@@ -138,7 +134,8 @@ impl Segment {
                         ))
             }
         }
-        Ok(true)
+
+         Ok(true)
     }
 }
 

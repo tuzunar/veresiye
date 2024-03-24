@@ -9,7 +9,7 @@ fn main() {
     
     let mut db = veresiye::Veresiye::new(String::from("./data")).unwrap();
 
-    db.set("key3", "value3");
+    db.set("key1", "value1");
 
     println!("{:?}", db.get_all_sstable_dir());
 
@@ -19,4 +19,5 @@ fn main() {
    //  };
 
     db.compact().unwrap();
+    db.cleanup_logs();
 }

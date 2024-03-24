@@ -9,8 +9,8 @@ impl Table {
     pub fn new(filename: &str) -> io::Result<Self> {
         let file = OpenOptions::new()
             .read(true)
-            .write(true)
             .create(true)
+            .append(true)
             .open(filename)?;
 
         Ok(Table {
