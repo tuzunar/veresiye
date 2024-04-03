@@ -11,5 +11,6 @@ path = "src/main.rs"
 
 [dependencies]
 fastmurmur3 = "0.2.0"
+flate2 = "1.0.28"
 rand = "0.8.5"
 sha256 = "1.5.0"
