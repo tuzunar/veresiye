@@ -17,14 +17,16 @@ fn main() {
     println!("{:?}", db.get_all_sstable_dir());
 
 
-   for n in 0..500000 {
+   for n in 0..10924 {
 
       let key = format!("key{}", n);
       let value = format!("value{}", n);
 
+
       db.set(&key, &value);
 
    }
+   println!("{}", db.get_memdb_size());
 
    // thread::sleep(Duration::from_millis(4000));
 

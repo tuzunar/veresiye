@@ -45,15 +45,27 @@ impl Veresiye {
         Ok(result)
     }
 
+    pub fn get_memdb_size(&self) -> usize {
+      self.memdb.size()
+    }
+
     pub fn set(&mut self, key: &str, value: &str) {
       let operation = format!("SET, {}, {}", key, value);
       self.wal.write(operation.as_bytes()).unwrap();
       self.memdb.insert(key, value);
 
-      if self.memdb.size() >= MEMDB_SIZE_THRESHOLD {
+      if self.memdb.size() == 1048752 {
          println!("{}", self.memdb.size());
+         self.sstable.insert(self.memdb.get_hash_table());
       }
     }
+    
+   //  pub fn flush_memdb(&mut self) {
+   //    let iblock = 
+   //    for(key, value) in self.memdb.get_hash_table() {
+
+   //    }
+   //  }
 
     pub fn get_all_sstable_dir(&self) -> Vec<PathBuf> {
       let path = read_dir(&self.path).expect("cannot read sstable dir");

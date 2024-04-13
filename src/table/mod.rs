@@ -1,9 +1,14 @@
-use std::{collections::BTreeMap, fs::{File, OpenOptions}, io::{self, BufRead, BufReader, Read, Seek, Write, Result}};
+use std::{collections::{BTreeMap, HashMap}, fs::{File, OpenOptions}, io::{self, BufRead, BufReader, BufWriter, Read, Result, Seek, Write}};
+
+use serde::Serialize;
 
 use crate::{filter::BloomFilter, util};
 
+use self::{footer::Footer, index_block::IndexBlock, index_data::IndexData};
+
 mod index_block;
 mod index_data;
+mod footer;
 
 pub struct Table {
     index: BTreeMap<String, u64>,
@@ -13,17 +18,17 @@ pub struct Table {
 
 impl Table {
     pub fn new(filename: &str) -> io::Result<Self> {
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .read(true)
             .create(true)
             .append(true)
             .open(filename)?;
 
          let bloom = BloomFilter::create(10000, 0.001f64);
-         let filter = format!("{:?}", &bloom.get_filter());
-         file.write(&bloom.get_filter()).expect("cannot write bloom filter to file");
+         // let filter = format!("{:?}", &bloom.get_filter());
+         // file.write(&bloom.get_filter()).expect("cannot write bloom filter to file");
 
-         writeln!(file).unwrap();
+         // writeln!(file).unwrap();
 
         Ok(Table {
             index: BTreeMap::new(),
@@ -32,16 +37,37 @@ impl Table {
         })
     }
 
-    pub fn insert(&mut self, key: &str, value: &str) -> io::Result<()> {
-        let position = self.file.metadata()?.len();
+    pub fn insert(&self, data_block: &HashMap<String, String>) {
+      let mut iblock = IndexBlock::create();
+      let f = &self.file;
+      let mut b_write = BufWriter::new(f);
+      &f.seek(io::SeekFrom::Start(0)).expect("seek error");
+      b_write.seek(io::SeekFrom::Start(0)).expect("seek error");
+      let mut data = String::new();
 
-        
+      for (key, value) in data_block {
+         let formatted_data = format!("{}:{},", key, value);
+         data.push_str(&formatted_data);
+         let value_offset = data.len() - value.len();
+         let idata = IndexData::create(String::from(key), value_offset as u64, value.len() as u64);
+         iblock.append(idata);
+      }
+      f.set_len(data.len() as u64).expect("set len error ");
+      b_write.write_all(data.as_bytes()).expect("write error");
+      let iblock_len = &iblock.get_serialized().len();
+      f.set_len((data.len() +*iblock_len) as u64).expect("set len error");
+       b_write.write_all(&iblock.get_serialized()).expect("index block write error");
 
-        let data_entry = format!("{}:{},", key, value).as_bytes().to_vec();
+      println!("iblock end offset {}", data.len() + iblock_len);
 
-        self.file.write_all(&data_entry)?;
-        self.index.insert(key.to_string(), position);
-        Ok(())
+      let footer = Footer::create((data.len() + iblock_len) as u64);
+
+      f.set_len((data.len() + iblock_len + footer.to_bytes().len()) as u64).expect("set len error");
+      let footer_start_offset = b_write.write(&footer.to_bytes()).expect("footer write error");
+
+      println!("footer start offset: {}", footer_start_offset);
+      println!("{}", f.metadata().unwrap().len());
+      b_write.flush().expect("flush error");
     }
     
     pub fn get(&mut self, key: &str) -> io::Result<Option<String>> {

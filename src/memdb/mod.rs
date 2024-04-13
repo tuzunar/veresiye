@@ -17,6 +17,10 @@ impl memdb {
       self.data.get(key)
    }
 
+   pub fn get_hash_table(&self) -> &HashMap<String, String> {
+      &self.data
+   }
+
    pub fn delete(&mut self, key: &str) -> Option<String> {
       self.data.remove(key)
    }
@@ -29,5 +33,9 @@ impl memdb {
       let num_entries = self.data.len();
 
       key_size * num_entries + value_size * num_entries + hashmap_overhead + entry_overhead * num_entries
+   }
+
+   pub fn clear(&mut self) {
+      self.data.clear()
    }
 }
