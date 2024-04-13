@@ -7,6 +7,7 @@ mod veresiye;
 mod table;
 mod util;
 mod filter;
+mod memdb;
 
 fn main() {
     
@@ -16,7 +17,7 @@ fn main() {
     println!("{:?}", db.get_all_sstable_dir());
 
 
-   for n in 0..10 {
+   for n in 0..500000 {
 
       let key = format!("key{}", n);
       let value = format!("value{}", n);
@@ -27,10 +28,10 @@ fn main() {
 
    // thread::sleep(Duration::from_millis(4000));
 
-   match db.get("key11") {
-      Ok(v) => println!("{}", v),
-      Err(e) => eprintln!("Error: {}", e)
-   };
+   // match db.get("key11") {
+   //    Ok(v) => println!("{}", v),
+   //    Err(e) => eprintln!("Error: {}", e)
+   // };
 
    //  db.compact().unwrap();
    //  db.cleanup_logs();

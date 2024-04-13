@@ -2,6 +2,9 @@ use std::{collections::BTreeMap, fs::{File, OpenOptions}, io::{self, BufRead, Bu
 
 use crate::{filter::BloomFilter, util};
 
+mod index_block;
+mod index_data;
+
 pub struct Table {
     index: BTreeMap<String, u64>,
     file: File,

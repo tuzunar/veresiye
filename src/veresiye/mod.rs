@@ -1,13 +1,15 @@
 use std::{ collections::BTreeMap, fs::{create_dir_all, read_dir, File, OpenOptions}, io::{self, Error, Read, Result, Seek, SeekFrom, Write}, path::{Path, PathBuf}, time::{SystemTime, UNIX_EPOCH}};
 
-use crate::{table::{self, Table}, wal::{self, Log}};
+use crate::{memdb::memdb, table::{self, Table}, wal::{self, Log}};
 
 pub struct Veresiye {
         wal: Log,
         path: String,
-        sstable: Table 
+        sstable: Table,
+        memdb: memdb
 }
 
+const MEMDB_SIZE_THRESHOLD: usize = 1024 * 1024 * 1;
 
 /// new sstables always write third level 
 
@@ -27,11 +29,14 @@ impl Veresiye {
         let sstable_path = format!("./{}/{}", p.display(), sstable_name);
 
         let sstable = table::Table::new(&sstable_path).unwrap();
-        let  wal = wal::Log::open("./log", 10000).unwrap();
+        let wal = wal::Log::open("./log", 10000).unwrap();
+        let memdb = memdb::new();
+
         Ok(Veresiye {
             wal,
             path,
-            sstable
+            sstable,
+            memdb
         })
     }
 
@@ -41,9 +46,13 @@ impl Veresiye {
     }
 
     pub fn set(&mut self, key: &str, value: &str) {
-        let operation = format!("SET, {}, {}", key, value);
-        self.wal.write(operation.as_bytes()).unwrap();
-        self.sstable.insert(key, value).unwrap();
+      let operation = format!("SET, {}, {}", key, value);
+      self.wal.write(operation.as_bytes()).unwrap();
+      self.memdb.insert(key, value);
+
+      if self.memdb.size() >= MEMDB_SIZE_THRESHOLD {
+         println!("{}", self.memdb.size());
+      }
     }
 
     pub fn get_all_sstable_dir(&self) -> Vec<PathBuf> {
