@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{self, BufRead, Read, Result, Seek, Write},
+    io::{self, BufRead, Read, Result, Seek, Write}, path::PathBuf,
 };
 
 use memmap2::MmapOptions;
@@ -20,7 +20,7 @@ mod index_data;
 
 pub struct Table {
     file: File,
-    bloom: BloomFilter,
+   //  bloom: BloomFilter,
 }
 
 impl Table {
@@ -37,13 +37,22 @@ impl Table {
 
         // writeln!(file).unwrap();
 
-        Ok(Table { file, bloom })
+        Ok(Table { file })
+    }
+
+    pub fn open(file_path: &str) -> io::Result<Self> {
+      let file = OpenOptions::new()
+                           .read(true)
+                           .open(file_path)
+                           .expect("cannot open table file");
+
+      Ok(Table { file })
     }
 
     pub fn insert(&self, data_block: &HashMap<String, String>) {
         let mut iblock = IndexBlock::create();
         let mut f = &self.file;
-        &f.seek(io::SeekFrom::Start(0)).expect("seek error");
+        f.seek(io::SeekFrom::Start(0)).expect("seek error");
         let mut data = String::new();
 
         for (key, value) in data_block {
@@ -69,7 +78,8 @@ impl Table {
         println!("{}", f.metadata().unwrap().len());
     }
 
-    pub fn get(&mut self, key: &str) {
+    pub fn get(&self, key: &str) {
+        println!("file length {}", self.file.metadata().unwrap().len());
         let mmap = unsafe {
             MmapOptions::new()
                 .map_mut(&self.file)
@@ -95,15 +105,6 @@ impl Table {
             .unwrap();
         let value_bytes = &mmap[iblock.value_offset as usize - 1..][..iblock.value_length as usize];
         println!("value is {}", String::from_utf8_lossy(value_bytes));
-        // self.file.seek(io::SeekFrom::End(-(FOOTER_SIZE as i64)));
-        // let mut footer_bytes = [0u8; 8];
-        // self.file
-        //     .read_exact(&mut footer_bytes)
-        //     .expect("exact read error");
-        // let footer = Footer::from_bytes(&footer_bytes);
-        // let mut index_block_bytes;
-        // self.file.seek()
-        // let iblock = IndexBlock::get_deserialized(iblock);
     }
 
     pub fn get_filter(&mut self) -> Result<String> {

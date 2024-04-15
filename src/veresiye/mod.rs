@@ -15,7 +15,7 @@ use crate::{
 pub struct Veresiye {
     wal: Log,
     path: String,
-    sstable: Table,
+    sstable: Vec<Table>,
     memdb: memdb,
 }
 
@@ -26,32 +26,59 @@ const MEMDB_SIZE_THRESHOLD: usize = 1024 * 1024 * 1;
 impl Veresiye {
     pub fn new(path: String) -> Result<Veresiye> {
         let p = Path::new(&path);
-        if !p.exists() {
-            create_dir_all(&p)?;
-        }
-
+        
         if !p.is_dir() {
             return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
         }
 
-        let sstable_name = format!("level_zero_{}", get_timestamp());
+        if !p.exists() {
+            create_dir_all(&p)?;
 
-        let sstable_path = format!("./{}/{}", p.display(), sstable_name);
+            let sstable_name = format!("level_zero_{}", get_timestamp());
 
-        let sstable = table::Table::new(&sstable_path).unwrap();
-        let wal = wal::Log::open("./log", 10000).unwrap();
-        let memdb = memdb::new();
+            let sstable_path = format!("./{}/{}", p.display(), sstable_name);
 
-        Ok(Veresiye {
-            wal,
-            path,
-            sstable,
-            memdb,
-        })
+            let sstable = vec![table::Table::new(&sstable_path).unwrap()];
+            let wal = wal::Log::open("./log", 10000).unwrap();
+            let memdb = memdb::new();
+
+            Ok(Veresiye {
+                  wal,
+                  path,
+                  sstable,
+                  memdb,
+            })
+        } else {
+            let wal = wal::Log::open("./log", 10000).unwrap();
+            let memdb = memdb::new();
+
+            let table_dirs = Veresiye::get_all_sstable_dir(path.clone());
+            let mut sstable: Vec<Table> = vec![];
+            for table_dir in table_dirs {
+               let table = Table::open(table_dir.to_str().unwrap()).expect("cannot load table from path");
+               sstable.push(table);
+            }
+            
+            let sstable_name = format!("level_zero_{}", get_timestamp());
+
+            let sstable_path = format!("./{}/{}", p.display(), sstable_name);
+
+            let new_table = table::Table::new(&sstable_path).expect("cannot create new table");
+
+            sstable.push(new_table);
+
+            Ok(Veresiye {
+               wal,
+               path,
+               memdb,
+               sstable
+            })
+        }
+
     }
 
     pub fn get(&mut self, key: &str) {
-        self.sstable.get(key)
+        println!("{:?}", self.sstable.iter().map(|table| table.get(key)).next());
     }
 
     pub fn get_memdb_size(&self) -> usize {
@@ -65,25 +92,19 @@ impl Veresiye {
 
         if self.memdb.size() == 1048752 {
             println!("{}", self.memdb.size());
-            self.sstable.insert(self.memdb.get_hash_table());
+
+            self.sstable.last().unwrap().insert(self.memdb.get_hash_table());
         }
     }
 
-    //  pub fn flush_memdb(&mut self) {
-    //    let iblock =
-    //    for(key, value) in self.memdb.get_hash_table() {
-
-    //    }
-    //  }
-
-    pub fn get_all_sstable_dir(&self) -> Vec<PathBuf> {
-        let path = read_dir(&self.path).expect("cannot read sstable dir");
+    pub fn get_all_sstable_dir(path: String) -> Vec<PathBuf> {
+        let path = read_dir(path).expect("cannot read sstable dir");
         let dirs: Vec<PathBuf> = path.map(|path| path.unwrap().path()).collect();
         dirs
     }
 
     pub fn compact(&self) -> Result<()> {
-        let dirs = Veresiye::get_all_sstable_dir(&self);
+        let dirs = Veresiye::get_all_sstable_dir(String::from(&self.path));
         let mut merged_table: BTreeMap<String, String> = BTreeMap::new();
 
         for dir in dirs {

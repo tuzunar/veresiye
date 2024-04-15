@@ -13,7 +13,7 @@ fn main() {
 
     // println!("{:?}", db.get_all_sstable_dir());
 
-    for n in 0..10924 {
+    for n in 10924..21848 {
         let key = format!("key{}", n);
         let value = format!("value{}", n);
 

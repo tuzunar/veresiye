@@ -25,7 +25,6 @@ impl IndexBlock {
     }
 
     pub fn get_deserialized(iblock: &Vec<u8>) -> Self {
-        println!("{:?}", String::from_utf8_lossy(iblock));
         let deserialized: IndexBlock = serde_json::from_slice(&iblock).expect("deserialized error");
 
         deserialized
