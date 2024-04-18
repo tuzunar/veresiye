@@ -26,59 +26,49 @@ const MEMDB_SIZE_THRESHOLD: usize = 1024 * 1024 * 1;
 impl Veresiye {
     pub fn new(path: String) -> Result<Veresiye> {
         let p = Path::new(&path);
-        
-        if !p.is_dir() {
-            return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
-        }
 
         if !p.exists() {
             create_dir_all(&p)?;
 
-            let sstable_name = format!("level_zero_{}", get_timestamp());
-
-            let sstable_path = format!("./{}/{}", p.display(), sstable_name);
-
-            let sstable = vec![table::Table::new(&sstable_path).unwrap()];
+            let sstable = vec![];
             let wal = wal::Log::open("./log", 10000).unwrap();
             let memdb = memdb::new();
 
             Ok(Veresiye {
-                  wal,
-                  path,
-                  sstable,
-                  memdb,
+                wal,
+                path,
+                sstable,
+                memdb,
             })
         } else {
+            if !p.is_dir() {
+                return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
+            };
             let wal = wal::Log::open("./log", 10000).unwrap();
             let memdb = memdb::new();
 
             let table_dirs = Veresiye::get_all_sstable_dir(path.clone());
             let mut sstable: Vec<Table> = vec![];
             for table_dir in table_dirs {
-               let table = Table::open(table_dir.to_str().unwrap()).expect("cannot load table from path");
-               sstable.push(table);
+                let table =
+                    Table::open(table_dir.to_str().unwrap()).expect("cannot load table from path");
+                sstable.push(table);
             }
-            
-            let sstable_name = format!("level_zero_{}", get_timestamp());
-
-            let sstable_path = format!("./{}/{}", p.display(), sstable_name);
-
-            let new_table = table::Table::new(&sstable_path).expect("cannot create new table");
-
-            sstable.push(new_table);
 
             Ok(Veresiye {
-               wal,
-               path,
-               memdb,
-               sstable
+                wal,
+                path,
+                memdb,
+                sstable,
             })
         }
-
     }
 
     pub fn get(&mut self, key: &str) {
-        println!("{:?}", self.sstable.iter().map(|table| table.get(key)).next());
+        // self.sstable.iter().map(|table| table.get(key)).next();
+        for table in self.sstable.iter() {
+            table.get(key)
+        }
     }
 
     pub fn get_memdb_size(&self) -> usize {
@@ -93,7 +83,16 @@ impl Veresiye {
         if self.memdb.size() == 1048752 {
             println!("{}", self.memdb.size());
 
-            self.sstable.last().unwrap().insert(self.memdb.get_hash_table());
+            let sstable_name = format!("level_zero_{}", get_timestamp());
+            let sstable_path = format!("./{}/{}", self.path, sstable_name);
+
+            let new_table = table::Table::new(&sstable_path).expect("cannot create new table");
+            self.sstable.push(new_table);
+
+            self.sstable
+                .last()
+                .unwrap()
+                .insert(self.memdb.get_hash_table());
         }
     }
 
