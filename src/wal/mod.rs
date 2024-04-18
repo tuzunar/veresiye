@@ -1,17 +1,19 @@
+mod segment;
+
 use std::{
     fs::{self, create_dir_all, read_dir, remove_file, File},
     io::{self, Error, Result},
-    path::{Path, PathBuf}, time::{Duration, SystemTime},
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime},
 };
 
-use crate::segment::Segment;
+use self::segment::Segment;
 
 pub struct Log {
     segments: Vec<Segment>,
     next_segment: u64,
     path: String,
 }
-
 
 const LOG_RETENTION_MS: u64 = 60 * 60 * 24 * 7;
 
@@ -31,15 +33,14 @@ impl Log {
 
         let mut dir: Vec<_> = read_dir(path)?.map(|entry| entry.unwrap()).collect();
         dir.sort_by(|a, b| a.path().cmp(&b.path()));
-    
-        
+
         if dir.len() >= usize::try_from(1).unwrap() {
             for file in dir {
                 let file_path = format!("{}", &file.path().display());
                 let f = File::open(&file_path).unwrap();
-                match Segment::check_log_integrity(&f){
-                    Ok(_) => {},
-                    Err(e) => eprintln!("Error: {}", e)
+                match Segment::check_log_integrity(&f) {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("Error: {}", e),
                 };
                 match Segment::new(String::from(&file_path), entry_limit) {
                     Ok(s) => segments.push(s),
@@ -84,7 +85,12 @@ impl Log {
             None => {}
         }
 
-        let new_segment = Segment::open(&self.path, self.next_segment, self.segments.last_mut().unwrap().get_segment_limit(), true)?;
+        let new_segment = Segment::open(
+            &self.path,
+            self.next_segment,
+            self.segments.last_mut().unwrap().get_segment_limit(),
+            true,
+        )?;
         let space = new_segment.space();
         self.next_segment += 1;
         self.segments.push(new_segment);
@@ -96,14 +102,13 @@ impl Log {
         }
     }
 
-
     pub fn remove_logs(&self) {
-      for segment in &self.segments {
-         let created_at = &segment.get_segment_created_time().unwrap();
-         if is_older_than_one_week(*created_at) {
-            remove_file(segment.get_segment_path()).expect("cannot removed the segment file");
-         }
-      }
+        for segment in &self.segments {
+            let created_at = &segment.get_segment_created_time().unwrap();
+            if is_older_than_one_week(*created_at) {
+                remove_file(segment.get_segment_path()).expect("cannot removed the segment file");
+            }
+        }
     }
 
     pub fn list_logs(&self) -> Vec<PathBuf> {
@@ -123,12 +128,13 @@ impl Log {
 }
 
 fn is_older_than_one_week(time: SystemTime) -> bool {
-   let current_time = SystemTime::now();
+    let current_time = SystemTime::now();
 
-   if let Ok(duration) = current_time.duration_since(time) {
-      let one_week = Duration::from_secs(LOG_RETENTION_MS);
+    if let Ok(duration) = current_time.duration_since(time) {
+        let one_week = Duration::from_secs(LOG_RETENTION_MS);
 
-      duration > one_week
-   } else { false }   
-
+        duration > one_week
+    } else {
+        false
+    }
 }
