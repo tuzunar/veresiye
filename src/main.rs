@@ -13,15 +13,21 @@ fn main() {
 
     // println!("{:?}", db.get_all_sstable_dir());
 
-    for n in 10924..21848 {
-        let key = format!("key{}", n);
-        let value = format!("value{}", n);
+    // for n in 0..10924 {
+    //     let key = format!("key{}", n);
+    //     let value = format!("value{}", n);
 
-        db.set(&key, &value);
-    }
+    //     db.set(&key, &value);
+    // }
+    // for n in 10924..21848 {
+    //     let key = format!("key{}", n);
+    //     let value = format!("value{}", n);
 
-    println!("{}", db.get_memdb_size());
-    db.get("key13");
+    //     db.set(&key, &value);
+    // }
+
+    // println!("{}", db.get_memdb_size());
+    db.get("key17566");
 
     // thread::sleep(Duration::from_millis(4000));
 
