@@ -77,22 +77,29 @@ impl Veresiye {
 
     pub fn set(&mut self, key: &str, value: &str) {
         let operation = format!("SET, {}, {}", key, value);
-        self.wal.write(operation.as_bytes()).unwrap();
-        self.memdb.insert(key, value);
+        match self.wal.write(operation.as_bytes()) {
+            Ok(_) => {
+                self.memdb.insert(key, value);
 
-        if self.memdb.size() == 1048752 {
-            println!("{}", self.memdb.size());
+                if self.memdb.size() == 1048752 {
+                    println!("{}", self.memdb.size());
 
-            let sstable_name = format!("level_zero_{}", get_timestamp());
-            let sstable_path = format!("./{}/{}", self.path, sstable_name);
+                    let sstable_name = format!("level_zero_{}", get_timestamp());
+                    let sstable_path = format!("./{}/{}", self.path, sstable_name);
 
-            let new_table = table::Table::new(&sstable_path).expect("cannot create new table");
-            self.sstable.push(new_table);
+                    let new_table =
+                        table::Table::new(&sstable_path).expect("cannot create new table");
+                    self.sstable.push(new_table);
 
-            self.sstable
-                .last()
-                .unwrap()
-                .insert(self.memdb.get_hash_table());
+                    self.sstable
+                        .last()
+                        .unwrap()
+                        .insert(self.memdb.get_hash_table());
+                }
+            }
+            Err(e) => {
+                panic!("operation failed")
+            }
         }
     }
 

@@ -68,8 +68,7 @@ impl Log {
     pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
         self.allocate(1)?;
         let segment = self.segments.last_mut().unwrap();
-        segment.write(entry)?;
-        Ok(())
+        Ok(segment.write(entry).expect("log cannot write to segment"))
     }
 
     fn allocate(&mut self, n: usize) -> Result<usize> {
