@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{self, BufRead, Read, Result, Seek, Write}, path::PathBuf,
+    io::{self, BufRead, Read, Result, Seek, Write},
 };
 
 use memmap2::MmapOptions;
@@ -20,7 +20,7 @@ mod index_data;
 
 pub struct Table {
     file: File,
-   //  bloom: BloomFilter,
+    //  bloom: BloomFilter,
 }
 
 impl Table {
@@ -41,12 +41,12 @@ impl Table {
     }
 
     pub fn open(file_path: &str) -> io::Result<Self> {
-      let file = OpenOptions::new()
-                           .read(true)
-                           .open(file_path)
-                           .expect("cannot open table file");
+        let file = OpenOptions::new()
+            .read(true)
+            .open(file_path)
+            .expect("cannot open table file");
 
-      Ok(Table { file })
+        Ok(Table { file })
     }
 
     pub fn insert(&self, data_block: &HashMap<String, String>) {
@@ -79,13 +79,8 @@ impl Table {
     }
 
     pub fn get(&self, key: &str) {
-        println!("file length {}", self.file.metadata().unwrap().len());
-        let mmap = unsafe {
-            MmapOptions::new()
-                .map_mut(&self.file)
-                .expect("mmap file error")
-        };
-        println!("{}", mmap.len());
+        let mmap = unsafe { MmapOptions::new().map(&self.file).expect("mmap file error") };
+
         let footer_buf = &mmap[(mmap.len() as usize - FOOTER_SIZE as usize) as usize..mmap.len()];
 
         let footer = Footer::from_bytes(footer_buf);
@@ -97,14 +92,17 @@ impl Table {
 
         let iblocks = IndexBlock::get_deserialized(&index_block_bytes.to_vec());
 
-        let iblock = iblocks
+        let iblock: Vec<IndexData> = iblocks
             .index_block
             .into_iter()
             .filter(|ib| ib.index_key == key)
-            .next()
-            .unwrap();
-        let value_bytes = &mmap[iblock.value_offset as usize - 1..][..iblock.value_length as usize];
-        println!("value is {}", String::from_utf8_lossy(value_bytes));
+            .collect();
+
+        if iblock.len() > 0 {
+            let value_bytes =
+                &mmap[iblock[0].value_offset as usize - 1..][..iblock[0].value_length as usize];
+            println!("value is {}", String::from_utf8_lossy(value_bytes));
+        }
     }
 
     pub fn get_filter(&mut self) -> Result<String> {

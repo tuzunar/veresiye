@@ -23,7 +23,7 @@ impl Footer {
         let mut byte_array = [0u8; 8];
         byte_array.copy_from_slice(&bytes[0..8]);
         let index_block_start_offset = u64::from_le_bytes(byte_array);
-        println!("{:?}", bytes);
+
         Footer {
             index_block_start_offset,
         }
