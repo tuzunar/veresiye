@@ -124,6 +124,10 @@ impl Log {
     pub fn read(&self, index: usize) -> Result<String> {
         self.segments.get(index).expect("Segment not found").read()
     }
+
+    pub fn set_checkpoint_flag(&mut self) -> io::Result<()> {
+        self.set_checkpoint_flag()
+    }
 }
 
 fn is_older_than_one_week(time: SystemTime) -> bool {

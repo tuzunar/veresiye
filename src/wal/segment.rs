@@ -1,17 +1,20 @@
 use std::{
-    fs::{ File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::{Path, PathBuf}, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize
+    fs::{File, OpenOptions},
+    io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
+    u8, usize,
 };
 
 use crate::util;
-
-
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
 #[derive(Debug)]
 pub struct Segment {
     file: Mutex<File>,
-    file_path: PathBuf,   
+    file_path: PathBuf,
     entry_number: usize,
     entry_limit: usize,
 }
@@ -36,7 +39,7 @@ impl Segment {
             entry_limit: get_entry_limit(limit),
             entry_number: line_count,
             file: Mutex::new(file),
-            file_path: PathBuf::from(path)
+            file_path: PathBuf::from(path),
         })
     }
 
@@ -52,16 +55,17 @@ impl Segment {
             entry_number: 0,
             entry_limit: get_entry_limit(limit),
             file: Mutex::new(file),
-            file_path: PathBuf::from(fname)
+            file_path: PathBuf::from(fname),
         })
     }
 
     pub fn read(&self) -> Result<String> {
         let mut file = self.file.lock().expect("file lock error");
-        let mut content:String = String::new();
+        let mut content: String = String::new();
 
         file.seek(SeekFrom::Start(0))?;
-        file.read_to_string(&mut content).expect("read to string error");
+        file.read_to_string(&mut content)
+            .expect("read to string error");
 
         Ok(content)
     }
@@ -89,6 +93,11 @@ impl Segment {
         Ok(())
     }
 
+    pub fn set_checkpoint_flag(&mut self) -> io::Result<()> {
+        let file = self.file.lock().unwrap();
+        writeln!(file, "[Checkpoint]")
+    }
+
     pub fn space(&self) -> usize {
         self.entry_limit - self.entry_number
     }
@@ -98,15 +107,19 @@ impl Segment {
     }
 
     pub fn get_segment_path(&self) -> &PathBuf {
-      &self.file_path
+        &self.file_path
     }
 
     pub fn get_segment_created_time(&self) -> Result<SystemTime> {
-      let segment = &self.file.lock().unwrap();
+        let segment = &self.file.lock().unwrap();
 
-      let created_at = segment.metadata().unwrap().created().expect("cannot read create time of the segment");
+        let created_at = segment
+            .metadata()
+            .unwrap()
+            .created()
+            .expect("cannot read create time of the segment");
 
-      Ok(created_at)
+        Ok(created_at)
     }
 
     pub fn check_log_integrity(file: &File) -> Result<bool> {
@@ -117,28 +130,22 @@ impl Segment {
             let log_parts: Vec<&str> = entry.split('#').collect();
 
             if log_parts.len() != 4 {
-                return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Invalid WAL Entry"
-                        ))
+                return Err(io::Error::new(io::ErrorKind::Other, "Invalid WAL Entry"));
             }
 
             let log_checksum = log_parts[2];
-            let log_data: Vec<u8> =  parse_byte(log_parts[3]);
-            
-            let control_checksum = util::calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
+            let log_data: Vec<u8> = parse_byte(log_parts[3]);
+
+            let control_checksum =
+                util::calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
             if log_checksum != control_checksum {
-                return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Corrupted WAL Entry"
-                        ))
+                return Err(io::Error::new(io::ErrorKind::Other, "Corrupted WAL Entry"));
             }
         }
 
-         Ok(true)
+        Ok(true)
     }
 }
-
 
 fn get_entry_limit(limit: usize) -> usize {
     if limit <= 0 {
@@ -150,28 +157,29 @@ fn get_entry_limit(limit: usize) -> usize {
 }
 
 fn convert_byte_to_str(entry: &[u8]) -> io::Result<&str> {
-   let entry_str = match std::str::from_utf8(&entry) {
-      Ok(s) => s,
-      Err(e) => {
+    let entry_str = match std::str::from_utf8(&entry) {
+        Ok(s) => s,
+        Err(e) => {
             return Err(io::Error::new(
-               io::ErrorKind::InvalidData,
-               format!("Write error: {}", e),
+                io::ErrorKind::InvalidData,
+                format!("Write error: {}", e),
             ));
-      }
-   };
-   Ok(entry_str)
+        }
+    };
+    Ok(entry_str)
 }
 
 fn parse_byte(value: &str) -> Vec<u8> {
-   let bytes: Vec<u8> =  value.split(", ")
-   .filter_map(|s| {
-         if let Ok(byte) = s.trim_matches(|c| c == '[' || c == ']').parse::<u8>() {
-            Some(byte)
-         } else {
-            None
-         }
-   })
-   .collect();
+    let bytes: Vec<u8> = value
+        .split(", ")
+        .filter_map(|s| {
+            if let Ok(byte) = s.trim_matches(|c| c == '[' || c == ']').parse::<u8>() {
+                Some(byte)
+            } else {
+                None
+            }
+        })
+        .collect();
 
-   bytes
+    bytes
 }
