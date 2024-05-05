@@ -39,7 +39,7 @@ impl Log {
                 let file_path = format!("{}", &file.path().display());
                 let f = File::open(&file_path).unwrap();
                 match Segment::check_log_integrity(&f) {
-                    Ok(_) => {}
+                    Ok(_) => println!("{} integrity is okay", &file.path().display()),
                     Err(e) => eprintln!("Error: {}", e),
                 };
                 match Segment::new(String::from(&file_path), entry_limit) {
@@ -125,8 +125,12 @@ impl Log {
         self.segments.get(index).expect("Segment not found").read()
     }
 
-    pub fn set_checkpoint_flag(&mut self) -> io::Result<()> {
-        self.set_checkpoint_flag()
+    pub fn set_checkpoint_flag(&mut self) {
+        self.segments
+            .last_mut()
+            .expect("cannot reach last segment")
+            .set_checkpoint_flag()
+            .expect("cannot set checkpoint flag to segment");
     }
 }
 

@@ -94,7 +94,7 @@ impl Segment {
     }
 
     pub fn set_checkpoint_flag(&mut self) -> io::Result<()> {
-        let file = self.file.lock().unwrap();
+        let mut file = self.file.lock().unwrap();
         writeln!(file, "[Checkpoint]")
     }
 
