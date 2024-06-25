@@ -75,7 +75,6 @@ impl Table {
         let footer_start_offset = f.write(&footer.to_bytes()).expect("footer write error");
 
         println!("footer start offset: {}", footer_start_offset);
-        println!("{}", f.metadata().unwrap().len());
     }
 
     pub fn get(&self, key: &str) {
