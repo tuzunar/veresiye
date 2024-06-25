@@ -1,11 +1,14 @@
 mod segment;
 
 use std::{
+    collections::HashMap,
     fs::{self, create_dir_all, read_dir, remove_file, File},
     io::{self, Error, Result},
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
+
+use segment::WriteResult;
 
 use self::segment::Segment;
 
@@ -13,6 +16,7 @@ pub struct Log {
     segments: Vec<Segment>,
     next_segment: u64,
     path: String,
+    removable_segments: Vec<PathBuf>,
 }
 
 const LOG_RETENTION_MS: u64 = 60 * 60 * 24 * 7;
@@ -40,7 +44,7 @@ impl Log {
                 let f = File::open(&file_path).unwrap();
                 match Segment::check_log_integrity(&f) {
                     Ok(_) => println!("{} integrity is okay", &file.path().display()),
-                    Err(e) => eprintln!("Error: {}", e),
+                    Err(e) => panic!("Corrupted WAL Detected"),
                 };
                 match Segment::new(String::from(&file_path), entry_limit) {
                     Ok(s) => segments.push(s),
@@ -62,10 +66,11 @@ impl Log {
             segments,
             next_segment: read_segment,
             path: String::from(path),
+            removable_segments: Vec::new(),
         })
     }
 
-    pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
+    pub fn write(&mut self, entry: &[u8]) -> io::Result<WriteResult> {
         self.allocate(1)?;
         let segment = self.segments.last_mut().unwrap();
         Ok(segment.write(entry).expect("log cannot write to segment"))
@@ -102,15 +107,13 @@ impl Log {
     }
 
     pub fn remove_logs(&self) {
-        for segment in &self.segments {
-            let created_at = &segment.get_segment_created_time().unwrap();
-            if is_older_than_one_week(*created_at) {
-                remove_file(segment.get_segment_path()).expect("cannot removed the segment file");
-            }
+        let removable_segments = &self.removable_segments;
+        for segment in removable_segments {
+            remove_file(segment).expect("cannot removed the segment file");
         }
     }
 
-    pub fn list_logs(&self) -> Vec<PathBuf> {
+    pub fn list_segments(&self) -> Vec<PathBuf> {
         let paths = fs::read_dir(&self.path).unwrap();
         let mut sorted_paths: Vec<PathBuf> = paths.map(|entry| entry.unwrap().path()).collect();
         sorted_paths.sort();
@@ -126,11 +129,24 @@ impl Log {
     }
 
     pub fn set_checkpoint_flag(&mut self) {
-        self.segments
-            .last_mut()
-            .expect("cannot reach last segment")
+        let current_segment = self.segments.last_mut().expect("cannot reach last segment");
+        let current_segment_path = current_segment.get_segment_path().clone();
+        current_segment
             .set_checkpoint_flag()
             .expect("cannot set checkpoint flag to segment");
+        Log::mark_segments_as_removable(self, current_segment_path)
+    }
+
+    fn replay() {}
+
+    fn mark_segments_as_removable(&mut self, current_segment: PathBuf) {
+        let segment_paths = Log::list_segments(self);
+        let removable_segments: Vec<PathBuf> = segment_paths
+            .iter()
+            .filter(|path| path.to_str().unwrap() < current_segment.to_str().unwrap())
+            .cloned()
+            .collect();
+        self.removable_segments = removable_segments
     }
 }
 

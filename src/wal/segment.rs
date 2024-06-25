@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::{File, OpenOptions},
     io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
@@ -7,7 +8,7 @@ use std::{
     u8, usize,
 };
 
-use crate::util;
+use crate::{memdb::memdb, util};
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
@@ -17,6 +18,11 @@ pub struct Segment {
     file_path: PathBuf,
     entry_number: usize,
     entry_limit: usize,
+}
+
+pub struct WriteResult {
+    pub entry_number: String,
+    pub file_path: String,
 }
 
 impl Segment {
@@ -70,9 +76,11 @@ impl Segment {
         Ok(content)
     }
 
-    pub fn write(&mut self, entry: &[u8]) -> io::Result<()> {
+    pub fn write(&mut self, entry: &[u8]) -> io::Result<WriteResult> {
         let mut file = self.file.lock().unwrap();
         let timestamp = util::get_timestamp();
+        self.entry_number += 1;
+        let entry_number: usize = self.entry_number as usize;
         let entry_str = match std::str::from_utf8(entry) {
             Ok(s) => s,
             Err(e) => {
@@ -83,14 +91,23 @@ impl Segment {
             }
         };
         let checksum = util::calculate_checksum(entry_str);
-        let log_entry = format!("{:?}#{}#{}#{:?}", timestamp, entry.len(), checksum, entry);
+        let log_entry = format!(
+            "{:?}#{:?}#{}#{}#{:?}",
+            entry_number,
+            timestamp,
+            entry.len(),
+            checksum,
+            entry
+        );
         writeln!(file, "{}", log_entry)?;
 
+        //program must be crash if flush operation not finished successfuly
         file.flush()?;
 
-        self.entry_number += 1;
-
-        Ok(())
+        Ok(WriteResult {
+            entry_number: entry_number.to_string(),
+            file_path: String::from(self.file_path.to_str().unwrap()),
+        })
     }
 
     pub fn set_checkpoint_flag(&mut self) -> io::Result<()> {
@@ -127,17 +144,17 @@ impl Segment {
 
         for line in reader.lines() {
             let entry = line?;
+
             let log_parts: Vec<&str> = entry.split('#').collect();
 
-            if log_parts.len() != 4 {
+            if log_parts.len() != 5 {
                 return Err(io::Error::new(io::ErrorKind::Other, "Invalid WAL Entry"));
             }
 
-            let log_checksum = log_parts[2];
-            let log_data: Vec<u8> = parse_byte(log_parts[3]);
-
-            let control_checksum =
-                util::calculate_checksum(convert_byte_to_str(&log_data).expect("convert error"));
+            let log_checksum = log_parts[3];
+            let log_data: Vec<u8> = parse_byte(log_parts[4]);
+            let converted_log: &str = convert_byte_to_str(&log_data).expect("convert error");
+            let control_checksum = util::calculate_checksum(converted_log);
             if log_checksum != control_checksum {
                 return Err(io::Error::new(io::ErrorKind::Other, "Corrupted WAL Entry"));
             }
