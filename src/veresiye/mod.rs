@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::{
+    manifest::Manifest,
     memdb::memdb,
     table::{self, Table},
     wal::{self, Log},
@@ -17,6 +18,7 @@ pub struct Veresiye {
     path: String,
     sstable: Vec<Table>,
     memdb: memdb,
+    manifest: Manifest,
 }
 
 const MEMDB_SIZE_THRESHOLD: usize = 1024 * 1024 * 1;
@@ -33,12 +35,14 @@ impl Veresiye {
             let sstable = vec![];
             let wal = wal::Log::open("./log", 10000).unwrap();
             let memdb = memdb::new();
+            let manifest = Manifest::create().expect("cannot create manifest file");
 
             Ok(Veresiye {
                 wal,
                 path,
                 sstable,
                 memdb,
+                manifest,
             })
         } else {
             if !p.is_dir() {
@@ -55,11 +59,14 @@ impl Veresiye {
                 sstable.push(table);
             }
 
+            let manifest = Manifest::open().expect("cannot open the manifest file");
+
             Ok(Veresiye {
                 wal,
                 path,
                 memdb,
                 sstable,
+                manifest,
             })
         }
     }
@@ -78,12 +85,12 @@ impl Veresiye {
     pub fn set(&mut self, key: &str, value: &str) {
         let operation = format!("SET, {}, {}", key, value);
         match self.wal.write(operation.as_bytes()) {
-            Ok(_) => {
+            Ok(result) => {
                 self.memdb.insert(key, value);
 
-                if self.memdb.size() == 1048752 {
+                if self.memdb.size() >= MEMDB_SIZE_THRESHOLD {
                     println!("{}", self.memdb.size());
-
+                    self.memdb.move_buffer_to_data();
                     let sstable_name = format!("level_zero_{}", get_timestamp());
                     let sstable_path = format!("./{}/{}", self.path, sstable_name);
 
@@ -95,10 +102,18 @@ impl Veresiye {
                         .last()
                         .unwrap()
                         .insert(self.memdb.get_hash_table());
+
+                    let manifest_data = self
+                        .manifest
+                        .edit_manifest(result.entry_number, result.file_path);
+
+                    self.manifest.save_manifest(manifest_data)
+                    // self.wal.set_checkpoint_flag();
+                    // self.wal.remove_logs();
                 }
             }
             Err(e) => {
-                panic!("operation failed")
+                panic!("operation failed {}", e)
             }
         }
     }
