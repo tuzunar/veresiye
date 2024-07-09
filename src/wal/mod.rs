@@ -3,12 +3,14 @@ mod segment;
 use std::{
     collections::HashMap,
     fs::{self, create_dir_all, read_dir, remove_file, File},
-    io::{self, Error, Result},
+    io::{self, BufRead, BufReader, Error, Result},
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 
 use segment::WriteResult;
+
+use crate::util::{parse_log_line, LogData};
 
 use self::segment::Segment;
 
@@ -137,7 +139,34 @@ impl Log {
         Log::mark_segments_as_removable(self, current_segment_path)
     }
 
-    fn replay() {}
+    pub fn replay(&self, entry_number: &str, segment_path: &str) -> HashMap<String, String> {
+        let segments = &self.list_segments();
+        let flushed_segment_index = &segments
+            .iter()
+            .position(|segment| segment.to_str().unwrap() == segment_path)
+            .unwrap();
+
+        let mut mem_table: HashMap<String, String> = HashMap::new();
+
+        for segment in segments.iter().skip(*flushed_segment_index) {
+            let file = File::open(segment.to_str().unwrap()).unwrap();
+            let reader = BufReader::new(file);
+            for line in reader.lines().skip(entry_number.parse::<usize>().unwrap()) {
+                let parsed_line: LogData = parse_log_line(&line.unwrap());
+                // println!("{:?}", parsed_line);
+                if &parsed_line.command == "SET" {
+                    mem_table.insert(
+                        String::from(parsed_line.key.trim()),
+                        String::from(parsed_line.value.trim()),
+                    );
+                } else if &parsed_line.command == "DELETE" {
+                    mem_table.remove(&parsed_line.key).unwrap();
+                }
+            }
+        }
+
+        mem_table
+    }
 
     fn mark_segments_as_removable(&mut self, current_segment: PathBuf) {
         let segment_paths = Log::list_segments(self);
