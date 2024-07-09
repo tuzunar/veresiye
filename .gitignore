@@ -5,6 +5,7 @@ Cargo.lock
 .history
 
 
-#project files 
+#project files
 log
 data
+manifest

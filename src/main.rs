@@ -18,13 +18,13 @@ fn main() {
     //     db.set(&key, &value);
     // }
 
-    for n in 0..10925 {
-        let key = format!("key{}", n);
-        let value = format!("value{}", n);
+    // for n in 0..10925 {
+    //     let key = format!("key{}", n);
+    //     let value = format!("value{}", n);
 
-        db.set(&key, &value);
-    }
-    println!("{}", db.get_memdb_size());
+    //     db.set(&key, &value);
+    // }
+    // println!("{}", db.get_memdb_size());
 
     // for n in 10924..21848 {
     //     let key = format!("key{}", n);
@@ -38,10 +38,10 @@ fn main() {
 
     // thread::sleep(Duration::from_millis(4000));
 
-    // match db.get("key11") {
-    //    Ok(v) => println!("{}", v),
-    //    Err(e) => eprintln!("Error: {}", e)
-    // };
+    match db.get("key10923") {
+        Some(v) => println!("{}", v),
+        None => eprintln!("Error: Value Not Found"),
+    };
 
     //  db.compact().unwrap();
     //  db.cleanup_logs();
