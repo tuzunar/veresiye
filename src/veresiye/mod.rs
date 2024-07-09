@@ -48,8 +48,16 @@ impl Veresiye {
             if !p.is_dir() {
                 return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
             };
+            let mut manifest = Manifest::open().expect("cannot open the manifest file");
             let wal = wal::Log::open("./log", 10000).unwrap();
-            let memdb = memdb::new();
+            let mut memdb = memdb::new();
+
+            let manifest_data = &manifest.get_manifest();
+            let unflushed_data = wal.replay(
+                &manifest_data.last_flushed_sequence,
+                &manifest_data.last_flushed_segment,
+            );
+            memdb.append(unflushed_data);
 
             let table_dirs = Veresiye::get_all_sstable_dir(path.clone());
             let mut sstable: Vec<Table> = vec![];
@@ -58,8 +66,6 @@ impl Veresiye {
                     Table::open(table_dir.to_str().unwrap()).expect("cannot load table from path");
                 sstable.push(table);
             }
-
-            let manifest = Manifest::open().expect("cannot open the manifest file");
 
             Ok(Veresiye {
                 wal,
@@ -71,10 +77,18 @@ impl Veresiye {
         }
     }
 
-    pub fn get(&mut self, key: &str) {
-        // self.sstable.iter().map(|table| table.get(key)).next();
-        for table in self.sstable.iter() {
-            table.get(key)
+    pub fn get(&mut self, key: &str) -> Option<String> {
+        if self.memdb.buffer.contains_key(key) {
+            Some(String::from(
+                self.memdb.get(key).expect("cannot get value from memdb"),
+            ))
+        } else {
+            for table in self.sstable.iter() {
+                if let Some(value) = &table.get(key) {
+                    return Some(value.clone());
+                }
+            }
+            None
         }
     }
 
@@ -108,8 +122,6 @@ impl Veresiye {
                         .edit_manifest(result.entry_number, result.file_path);
 
                     self.manifest.save_manifest(manifest_data)
-                    // self.wal.set_checkpoint_flag();
-                    // self.wal.remove_logs();
                 }
             }
             Err(e) => {
