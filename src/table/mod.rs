@@ -77,7 +77,7 @@ impl Table {
         println!("footer start offset: {}", footer_start_offset);
     }
 
-    pub fn get(&self, key: &str) {
+    pub fn get(&self, key: &str) -> Option<String> {
         let mmap = unsafe { MmapOptions::new().map(&self.file).expect("mmap file error") };
 
         let footer_buf = &mmap[(mmap.len() as usize - FOOTER_SIZE as usize) as usize..mmap.len()];
@@ -101,6 +101,10 @@ impl Table {
             let value_bytes =
                 &mmap[iblock[0].value_offset as usize - 1..][..iblock[0].value_length as usize];
             println!("value is {}", String::from_utf8_lossy(value_bytes));
+            Some(String::from_utf8_lossy(value_bytes).to_string())
+        } else {
+            println!("value not found");
+            None
         }
     }
 
