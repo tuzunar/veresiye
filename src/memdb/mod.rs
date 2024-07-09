@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 pub struct memdb {
     data: HashMap<String, String>,
-    buffer: HashMap<String, String>,
+    pub buffer: HashMap<String, String>,
 }
 
 impl memdb {
@@ -27,6 +27,10 @@ impl memdb {
 
     pub fn delete(&mut self, key: &str) -> Option<String> {
         self.buffer.remove(key)
+    }
+
+    pub fn append(&mut self, data: HashMap<String, String>) {
+        self.buffer.extend(data);
     }
 
     pub fn size(&self) -> usize {
