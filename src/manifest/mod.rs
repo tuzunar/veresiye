@@ -14,9 +14,9 @@ pub struct Manifest {
 impl Manifest {
     pub fn create() -> io::Result<Self> {
         let file = OpenOptions::new()
+            .read(true)
             .write(true)
             .create(true)
-            .truncate(true)
             .open("./manifest")
             .expect("cannot create manifest file");
 
@@ -25,9 +25,8 @@ impl Manifest {
 
     pub fn open() -> io::Result<Self> {
         let file = OpenOptions::new()
+            .read(true)
             .write(true)
-            .create(true)
-            .truncate(true)
             .open("./manifest")
             .expect("cannot create manifest file");
 
@@ -43,7 +42,9 @@ impl Manifest {
 
         let mut manifest_buffer = Vec::new();
 
-        self.file.read_to_end(&mut manifest_buffer).unwrap();
+        self.file
+            .read_to_end(&mut manifest_buffer)
+            .expect("cannot read manifest file");
 
         let manifest_content: ManifestData = ManifestData::get_deserialized(manifest_buffer);
 
@@ -61,6 +62,8 @@ impl Manifest {
     }
 
     pub fn save_manifest(&mut self, manifest: ManifestData) {
+        self.file.set_len(0).unwrap();
+        self.file.rewind().unwrap();
         serde_json::to_writer(
             &self.file,
             &ManifestData {
