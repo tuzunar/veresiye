@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::{File, OpenOptions},
     io::{self, BufRead, Read, Result, Seek, Write},
 };
@@ -49,7 +49,7 @@ impl Table {
         Ok(Table { file })
     }
 
-    pub fn insert(&self, data_block: &HashMap<String, String>) {
+    pub fn insert(&self, data_block: &BTreeMap<String, String>) {
         let mut iblock = IndexBlock::create();
         let mut f = &self.file;
         f.seek(io::SeekFrom::Start(0)).expect("seek error");

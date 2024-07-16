@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub struct memdb {
-    data: HashMap<String, String>,
-    pub buffer: HashMap<String, String>,
+    data: BTreeMap<String, String>,
+    pub buffer: BTreeMap<String, String>,
 }
 
 impl memdb {
     pub fn new() -> memdb {
         memdb {
-            data: HashMap::new(),
-            buffer: HashMap::new(),
+            data: BTreeMap::new(),
+            buffer: BTreeMap::new(),
         }
     }
 
@@ -21,7 +21,7 @@ impl memdb {
         self.buffer.get(key)
     }
 
-    pub fn get_hash_table(&self) -> &HashMap<String, String> {
+    pub fn get_hash_table(&self) -> &BTreeMap<String, String> {
         &self.data
     }
 
@@ -29,20 +29,20 @@ impl memdb {
         self.buffer.remove(key)
     }
 
-    pub fn append(&mut self, data: HashMap<String, String>) {
+    pub fn append(&mut self, data: BTreeMap<String, String>) {
         self.buffer.extend(data);
     }
 
     pub fn size(&self) -> usize {
         let key_size = std::mem::size_of::<String>();
         let value_size = std::mem::size_of::<String>();
-        let hashmap_overhead = std::mem::size_of::<HashMap<String, String>>();
+        let btree_overhead = std::mem::size_of::<BTreeMap<String, String>>();
         let entry_overhead = std::mem::size_of::<(String, String)>();
         let num_entries = self.buffer.len();
 
         key_size * num_entries
             + value_size * num_entries
-            + hashmap_overhead
+            + btree_overhead
             + entry_overhead * num_entries
     }
 
@@ -56,7 +56,7 @@ impl memdb {
             memdb::size(&self)
         );
         self.data = self.buffer.clone();
-        self.buffer = HashMap::new();
+        self.buffer = BTreeMap::new();
         println!(
             "move buffer to data new buffer size is {}",
             memdb::size(&self)

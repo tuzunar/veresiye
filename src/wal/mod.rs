@@ -1,7 +1,7 @@
 mod segment;
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::{self, create_dir_all, read_dir, remove_file, File},
     io::{self, BufRead, BufReader, Error, Result},
     path::{Path, PathBuf},
@@ -139,14 +139,14 @@ impl Log {
         Log::mark_segments_as_removable(self, current_segment_path)
     }
 
-    pub fn replay(&self, entry_number: &str, segment_path: &str) -> HashMap<String, String> {
+    pub fn replay(&self, entry_number: &str, segment_path: &str) -> BTreeMap<String, String> {
         let segments = &self.list_segments();
         let flushed_segment_index = &segments
             .iter()
             .position(|segment| segment.to_str().unwrap() == segment_path)
             .unwrap();
 
-        let mut mem_table: HashMap<String, String> = HashMap::new();
+        let mut mem_table: BTreeMap<String, String> = BTreeMap::new();
 
         for segment in segments.iter().skip(*flushed_segment_index) {
             let file = File::open(segment.to_str().unwrap()).unwrap();
