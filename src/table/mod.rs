@@ -1,10 +1,11 @@
+use core::str;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fs::{File, OpenOptions},
     io::{self, BufRead, Read, Result, Seek, Write},
 };
 
-use memmap2::MmapOptions;
+use memmap2::{Mmap, MmapOptions};
 
 use crate::{filter::BloomFilter, util};
 
@@ -20,11 +21,12 @@ mod index_data;
 
 pub struct Table {
     file: File,
+    level: usize,
     //  bloom: BloomFilter,
 }
 
 impl Table {
-    pub fn new(filename: &str) -> io::Result<Self> {
+    pub fn new(filename: &str, level: usize) -> io::Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .create(true)
@@ -37,7 +39,7 @@ impl Table {
 
         // writeln!(file).unwrap();
 
-        Ok(Table { file })
+        Ok(Table { file, level })
     }
 
     pub fn open(file_path: &str) -> io::Result<Self> {
@@ -45,8 +47,13 @@ impl Table {
             .read(true)
             .open(file_path)
             .expect("cannot open table file");
-
-        Ok(Table { file })
+        let sstable_dir: Vec<&str> = file_path.split("/").collect();
+        let sstable_labels: Vec<&str> = sstable_dir[2].split("_").collect();
+        let sstable_level: &str = sstable_labels[1];
+        Ok(Table {
+            file,
+            level: sstable_level.parse::<usize>().unwrap(),
+        })
     }
 
     pub fn insert(&self, data_block: &BTreeMap<String, String>) {
@@ -80,16 +87,7 @@ impl Table {
     pub fn get(&self, key: &str) -> Option<String> {
         let mmap = unsafe { MmapOptions::new().map(&self.file).expect("mmap file error") };
 
-        let footer_buf = &mmap[(mmap.len() as usize - FOOTER_SIZE as usize) as usize..mmap.len()];
-
-        let footer = Footer::from_bytes(footer_buf);
-
-        let end_of_index_block = &mmap.len() - (FOOTER_SIZE as usize);
-
-        let index_block_bytes =
-            &mmap[(footer.get_index_block_start_offseet() as usize)..end_of_index_block];
-
-        let iblocks = IndexBlock::get_deserialized(&index_block_bytes.to_vec());
+        let iblocks = get_index_block(&mmap, FOOTER_SIZE);
 
         let iblock: Vec<IndexData> = iblocks
             .index_block
@@ -100,7 +98,6 @@ impl Table {
         if iblock.len() > 0 {
             let value_bytes =
                 &mmap[iblock[0].value_offset as usize - 1..][..iblock[0].value_length as usize];
-            println!("value is {}", String::from_utf8_lossy(value_bytes));
             Some(String::from_utf8_lossy(value_bytes).to_string())
         } else {
             println!("value not found");
@@ -139,4 +136,64 @@ impl Table {
             "Filter not found",
         ))
     }
+
+    pub fn get_table_level(&self) -> usize {
+        self.level
+    }
+}
+
+///
+/// Reconstruct BTree from sstable and return it.
+///
+/// @return BTreeMap<String, String>
+///
+pub fn reconstruct_tree_from_sstable(file: File) -> BTreeMap<String, String> {
+    let mut reconstructed_tree: BTreeMap<String, String> = BTreeMap::new();
+
+    let mmap: Mmap = unsafe { MmapOptions::new().map(&file).expect("cannot map the file") };
+
+    let footer: Footer = get_footer(&mmap, FOOTER_SIZE);
+
+    let raw_data = &mmap[(..footer.get_index_block_start_offseet() as usize)];
+
+    //parse raw data to &str
+    let parsed_data = match str::from_utf8(raw_data) {
+        Ok(v) => v,
+        Err(e) => panic!("cannot parse raw data because: {}", e),
+    };
+
+    let mut key_value_pairs: Vec<&str> = parsed_data.split(",").collect();
+
+    key_value_pairs.pop().unwrap();
+
+    for pairs in key_value_pairs {
+        let pair: Vec<&str> = pairs.split(":").collect();
+        let key: &str = pair[0];
+        let value: &str = pair[1];
+
+        reconstructed_tree.insert(String::from(key), String::from(value));
+    }
+
+    reconstructed_tree
+}
+
+fn get_footer(mmap: &Mmap, footer_size: usize) -> Footer {
+    let footer_bytes = &mmap[(mmap.len() - FOOTER_SIZE..mmap.len())];
+
+    let footer: Footer = Footer::from_bytes(footer_bytes);
+
+    footer
+}
+
+fn get_index_block(mmap: &Mmap, footer_size: usize) -> IndexBlock {
+    let footer: Footer = get_footer(mmap, FOOTER_SIZE);
+
+    let end_of_index_block = mmap.len() - FOOTER_SIZE;
+
+    let index_block_bytes =
+        &mmap[(footer.get_index_block_start_offseet() as usize)..end_of_index_block];
+
+    let iblocks = IndexBlock::get_deserialized(&index_block_bytes.to_vec());
+
+    iblocks
 }

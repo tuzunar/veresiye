@@ -1,3 +1,4 @@
+#![allow(warnings)]
 mod filter;
 mod manifest;
 mod memdb;
@@ -5,6 +6,7 @@ mod table;
 mod util;
 mod veresiye;
 mod wal;
+// mod compaction;
 
 fn main() {
     let mut db = veresiye::Veresiye::new(String::from("./data")).unwrap();
@@ -24,6 +26,14 @@ fn main() {
 
     //     db.set(&key, &value);
     // }
+
+    match db.get("key109888") {
+        Some(value) => println!("{}", value),
+        None => println!("value not found")
+    }
+    // println!("{:?}", db.get("key10921").unwrap());
+
+    // db.compact();
     // println!("{}", db.get_memdb_size());
 
     // for n in 10924..21848 {
@@ -38,10 +48,10 @@ fn main() {
 
     // thread::sleep(Duration::from_millis(4000));
 
-    match db.get("key10923") {
-        Some(v) => println!("{}", v),
-        None => eprintln!("Error: Value Not Found"),
-    };
+    // match db.get("key10923") {
+    //     Some(v) => println!("{}", v),
+    //     None => eprintln!("Error: Value Not Found"),
+    // };
 
     //  db.compact().unwrap();
     //  db.cleanup_logs();

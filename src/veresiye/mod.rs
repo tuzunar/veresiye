@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     collections::BTreeMap,
     fs::{create_dir_all, read_dir, File, OpenOptions},
     io::{self, Error, Read, Result, Seek, SeekFrom, Write},
@@ -6,12 +7,16 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use compaction::Compaction;
+
 use crate::{
     manifest::Manifest,
     memdb::memdb,
     table::{self, Table},
     wal::{self, Log},
 };
+
+mod compaction;
 
 pub struct Veresiye {
     wal: Log,
@@ -103,13 +108,12 @@ impl Veresiye {
                 self.memdb.insert(key, value);
 
                 if self.memdb.size() >= MEMDB_SIZE_THRESHOLD {
-                    println!("{}", self.memdb.size());
                     self.memdb.move_buffer_to_data();
-                    let sstable_name = format!("level_zero_{}", get_timestamp());
+                    let sstable_name = format!("level_0_{}", get_timestamp());
                     let sstable_path = format!("./{}/{}", self.path, sstable_name);
 
-                    let new_table =
-                        table::Table::new(&sstable_path).expect("cannot create new table");
+                    let new_table = table::Table::new(&sstable_path, 0 as usize)
+                        .expect("cannot create new table");
                     self.sstable.push(new_table);
 
                     self.sstable
@@ -117,11 +121,15 @@ impl Veresiye {
                         .unwrap()
                         .insert(self.memdb.get_hash_table());
 
-                    let manifest_data = self
-                        .manifest
-                        .edit_manifest(result.entry_number, result.file_path);
+                    // let manifest_removable_tables = self.manifest.get_removable_tables();
+                    // let manifest_removable_tables = self.manifest.get_removable_tables();
 
-                    self.manifest.save_manifest(manifest_data)
+                    let manifest_data = self.manifest.edit_manifest(
+                        result.entry_number,
+                        result.file_path
+                    );
+
+                    self.manifest.save_manifest(manifest_data);
                 }
             }
             Err(e) => {
@@ -136,40 +144,48 @@ impl Veresiye {
         dirs
     }
 
-    pub fn compact(&self) -> Result<()> {
-        let dirs = Veresiye::get_all_sstable_dir(String::from(&self.path));
-        let mut merged_table: BTreeMap<String, String> = BTreeMap::new();
+    pub fn compact(self) {
+        // let cmpct = Compaction::init(self.path).clone();
+        // let cmpct_time = cmpct.level_one_check();
+        // cmpct.compact_level_zero();
 
-        for dir in dirs {
-            let path_string: &String = &dir.clone().into_os_string().into_string().unwrap();
-            let leveled_sstable: Vec<&str> = path_string.split("/").collect();
-            let third_label: Vec<&str> = leveled_sstable[2].split("_").collect();
+        // if cmpct.level_one_check() {
+        //     cmpct.compact_level_zero();
+        // }
 
-            if third_label[0] == "level" && third_label[1] == "zero" {
-                let mut file = OpenOptions::new().read(true).open(&dir).unwrap();
-                let mut content: String = String::new();
-                file.seek(SeekFrom::Start(0)).unwrap();
-                file.read_to_string(&mut content)
-                    .expect("sstable read error");
+        // let dirs = Veresiye::get_all_sstable_dir(String::from(&self.path));
+        // let mut merged_table: BTreeMap<String, String> = BTreeMap::new();
 
-                let data: Vec<&str> = content.split(",").collect();
+        // for dir in dirs {
+        //     let path_string: &String = &dir.clone().into_os_string().into_string().unwrap();
+        //     let leveled_sstable: Vec<&str> = path_string.split("/").collect();
+        //     let sstable_labels: Vec<&str> = leveled_sstable[2].split("_").collect();
 
-                for entries in data {
-                    if entries.is_empty() {
-                        continue;
-                    }
-                    let entry: Vec<&str> = entries.split(":").collect();
-                    merged_table.insert(String::from(entry[0]), String::from(entry[1]));
-                }
-            }
+        //     if sstable_labels[0] == "level" && sstable_labels[1] == "zero" {
+        //         let mut file = OpenOptions::new().read(true).open(&dir).unwrap();
+        //         let mut content: String = String::new();
+        //         file.seek(SeekFrom::Start(0)).unwrap();
+        //         file.read_to_string(&mut content)
+        //             .expect("sstable read error");
 
-            let mut output_file = File::create("./data/compaction")?;
-            for (key, value) in &merged_table {
-                writeln!(output_file, "{}:{},", key, value)?;
-            }
-        }
+        //         let data: Vec<&str> = content.split(",").collect();
 
-        Ok(())
+        //         for entries in data {
+        //             if entries.is_empty() {
+        //                 continue;
+        //             }
+        //             let entry: Vec<&str> = entries.split(":").collect();
+        //             merged_table.insert(String::from(entry[0]), String::from(entry[1]));
+        //         }
+        //     }
+
+        //     let mut output_file = File::create("./data/compaction")?;
+        //     for (key, value) in &merged_table {
+        //         writeln!(output_file, "{}:{},", key, value)?;
+        //     }
+        // }
+
+        // Ok(())
     }
 
     pub fn cleanup_logs(self) {
