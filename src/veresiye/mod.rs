@@ -121,15 +121,11 @@ impl Veresiye {
                         .unwrap()
                         .insert(self.memdb.get_hash_table());
 
-                    // let manifest_removable_tables = self.manifest.get_removable_tables();
-                    // let manifest_removable_tables = self.manifest.get_removable_tables();
+                    let manifest_data = self
+                        .manifest
+                        .edit_manifest(result.entry_number, result.file_path);
 
-                    let manifest_data = self.manifest.edit_manifest(
-                        result.entry_number,
-                        result.file_path
-                    );
-
-                    self.manifest.save_manifest(manifest_data);
+                    self.manifest.save_manifest(&manifest_data);
                 }
             }
             Err(e) => {
@@ -144,48 +140,13 @@ impl Veresiye {
         dirs
     }
 
-    pub fn compact(self) {
-        // let cmpct = Compaction::init(self.path).clone();
-        // let cmpct_time = cmpct.level_one_check();
-        // cmpct.compact_level_zero();
+    pub fn compact(&mut self) {
+        let cmpct = Compaction::init(String::from(&self.path)).clone();
 
-        // if cmpct.level_one_check() {
-        //     cmpct.compact_level_zero();
-        // }
+        let removable_tables: Vec<PathBuf> = cmpct.compact_level_zero();
+        let manifest_data = &self.manifest.edit_removable_tables(removable_tables);
 
-        // let dirs = Veresiye::get_all_sstable_dir(String::from(&self.path));
-        // let mut merged_table: BTreeMap<String, String> = BTreeMap::new();
-
-        // for dir in dirs {
-        //     let path_string: &String = &dir.clone().into_os_string().into_string().unwrap();
-        //     let leveled_sstable: Vec<&str> = path_string.split("/").collect();
-        //     let sstable_labels: Vec<&str> = leveled_sstable[2].split("_").collect();
-
-        //     if sstable_labels[0] == "level" && sstable_labels[1] == "zero" {
-        //         let mut file = OpenOptions::new().read(true).open(&dir).unwrap();
-        //         let mut content: String = String::new();
-        //         file.seek(SeekFrom::Start(0)).unwrap();
-        //         file.read_to_string(&mut content)
-        //             .expect("sstable read error");
-
-        //         let data: Vec<&str> = content.split(",").collect();
-
-        //         for entries in data {
-        //             if entries.is_empty() {
-        //                 continue;
-        //             }
-        //             let entry: Vec<&str> = entries.split(":").collect();
-        //             merged_table.insert(String::from(entry[0]), String::from(entry[1]));
-        //         }
-        //     }
-
-        //     let mut output_file = File::create("./data/compaction")?;
-        //     for (key, value) in &merged_table {
-        //         writeln!(output_file, "{}:{},", key, value)?;
-        //     }
-        // }
-
-        // Ok(())
+        &self.manifest.save_manifest(&manifest_data);
     }
 
     pub fn cleanup_logs(self) {

@@ -63,15 +63,15 @@ impl Compaction {
         }
     }
 
-    pub fn compact_level_zero(self) {
+    pub fn compact_level_zero(self) -> Vec<PathBuf> {
         const CURRENT_LEVEL: usize = 0;
         const TARGET_LEVEL: usize = CURRENT_LEVEL + 1;
 
         let mut compacted_tree: BTreeMap<String, String> = BTreeMap::new();
 
-        let level_zero_table: Vec<PathBuf> = get_files_by_level(self.files, CURRENT_LEVEL);
+        let level_zero_tables: Vec<PathBuf> = get_files_by_level(self.files, CURRENT_LEVEL);
 
-        for path in level_zero_table {
+        for path in &level_zero_tables {
             let mut file = OpenOptions::new().read(true).open(path).unwrap();
             file.seek(SeekFrom::Start(0)).unwrap();
             let tree = reconstruct_tree_from_sstable(file);
@@ -85,6 +85,7 @@ impl Compaction {
         let compacted_table: Table =
             Table::new(&sstable_path, TARGET_LEVEL).expect("cannot create sstable");
         compacted_table.insert(&compacted_tree);
+        level_zero_tables
     }
 }
 
