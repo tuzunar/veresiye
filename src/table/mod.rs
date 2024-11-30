@@ -19,8 +19,9 @@ mod footer;
 mod index_block;
 mod index_data;
 
+#[derive(Debug)]
 pub struct Table {
-    file: File,
+    pub file: File,
     level: usize,
     //  bloom: BloomFilter,
 }
@@ -100,7 +101,7 @@ impl Table {
                 &mmap[iblock[0].value_offset as usize - 1..][..iblock[0].value_length as usize];
             Some(String::from_utf8_lossy(value_bytes).to_string())
         } else {
-            println!("value not found");
+            // println!("value not found");
             None
         }
     }

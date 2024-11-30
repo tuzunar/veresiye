@@ -18,7 +18,7 @@ pub struct Compaction {
 
 const LEVEL_ZERO_THRESHOLD: usize = 8 as usize;
 const LEVEL_ONE_THRESHOLD: usize = 4 as usize;
-const LEVEL_TWO_THRESHOLD: usize = 1 as usize;
+const LEVEL_TWO_THRESHOLD: usize = 2 as usize;
 
 impl Compaction {
     pub fn init(path: String) -> Self {
@@ -33,43 +33,108 @@ impl Compaction {
         Self { files: paths, path }
     }
 
-    pub fn level_zero_check(self) -> bool {
-        let level_zero_table = get_files_by_level(self.files, 0);
+    pub fn level_zero_check(&self, removable_tables: Vec<PathBuf>) -> bool {
+        let level_zero_table: Vec<PathBuf> = get_files_by_level(self.files.clone(), 0);
+        let threshold: Vec<PathBuf> = level_zero_table
+            .into_iter()
+            .filter(|table| !removable_tables.contains(&table.to_path_buf()))
+            .collect();
 
-        if level_zero_table.len() >= LEVEL_ZERO_THRESHOLD {
+        if threshold.len() >= LEVEL_ZERO_THRESHOLD {
             true
         } else {
             false
         }
     }
 
-    pub fn level_one_check(self) -> bool {
-        let level_one_table = get_files_by_level(self.files, 1);
+    pub fn level_one_check(&self, removable_tables: Vec<PathBuf>) -> bool {
+        let level_zero_table: Vec<PathBuf> = get_files_by_level(self.files.clone(), 1);
+        let threshold: Vec<PathBuf> = level_zero_table
+            .into_iter()
+            .filter(|table| !removable_tables.contains(&table.to_path_buf()))
+            .collect();
 
-        if level_one_table.len() >= LEVEL_ONE_THRESHOLD {
+        if threshold.len() >= LEVEL_ZERO_THRESHOLD {
             true
         } else {
             false
         }
     }
 
-    pub fn level_two_check(self) -> bool {
-        let level_two_table = get_files_by_level(self.files, 2);
+    pub fn level_two_check(&self, removable_tables: Vec<PathBuf>) -> bool {
+        let level_zero_table: Vec<PathBuf> = get_files_by_level(self.files.clone(), 2);
+        let threshold: Vec<PathBuf> = level_zero_table
+            .into_iter()
+            .filter(|table| !removable_tables.contains(&table.to_path_buf()))
+            .collect();
 
-        if level_two_table.len() >= LEVEL_TWO_THRESHOLD {
+        if threshold.len() >= LEVEL_ZERO_THRESHOLD {
             true
         } else {
             false
         }
     }
 
-    pub fn compact_level_zero(self) -> Vec<PathBuf> {
+    pub fn compact_level_zero(&self) -> Vec<PathBuf> {
         const CURRENT_LEVEL: usize = 0;
         const TARGET_LEVEL: usize = CURRENT_LEVEL + 1;
 
         let mut compacted_tree: BTreeMap<String, String> = BTreeMap::new();
 
-        let level_zero_tables: Vec<PathBuf> = get_files_by_level(self.files, CURRENT_LEVEL);
+        let level_zero_tables: Vec<PathBuf> =
+            get_files_by_level(self.files.to_vec(), CURRENT_LEVEL);
+
+        for path in &level_zero_tables {
+            let mut file = OpenOptions::new().read(true).open(path).unwrap();
+            file.seek(SeekFrom::Start(0)).unwrap();
+            let tree = reconstruct_tree_from_sstable(file);
+
+            compacted_tree.extend(tree);
+        }
+
+        let sstable_name: String = format!("level_{}_{}", TARGET_LEVEL, get_timestamp());
+        let sstable_path: String = format!("./{}/{}", self.path, sstable_name);
+
+        let compacted_table: Table =
+            Table::new(&sstable_path, TARGET_LEVEL).expect("cannot create sstable");
+        compacted_table.insert(&compacted_tree);
+        level_zero_tables
+    }
+
+    pub fn compact_level_one(&self) -> Vec<PathBuf> {
+        const CURRENT_LEVEL: usize = 1;
+        const TARGET_LEVEL: usize = CURRENT_LEVEL + 1;
+
+        let mut compacted_tree: BTreeMap<String, String> = BTreeMap::new();
+
+        let level_zero_tables: Vec<PathBuf> =
+            get_files_by_level(self.files.to_vec(), CURRENT_LEVEL);
+
+        for path in &level_zero_tables {
+            let mut file = OpenOptions::new().read(true).open(path).unwrap();
+            file.seek(SeekFrom::Start(0)).unwrap();
+            let tree = reconstruct_tree_from_sstable(file);
+
+            compacted_tree.extend(tree);
+        }
+
+        let sstable_name: String = format!("level_{}_{}", TARGET_LEVEL, get_timestamp());
+        let sstable_path: String = format!("./{}/{}", self.path, sstable_name);
+
+        let compacted_table: Table =
+            Table::new(&sstable_path, TARGET_LEVEL).expect("cannot create sstable");
+        compacted_table.insert(&compacted_tree);
+        level_zero_tables
+    }
+
+    pub fn compact_level_row(&self) -> Vec<PathBuf> {
+        const CURRENT_LEVEL: usize = 2;
+        const TARGET_LEVEL: usize = CURRENT_LEVEL;
+
+        let mut compacted_tree: BTreeMap<String, String> = BTreeMap::new();
+
+        let level_zero_tables: Vec<PathBuf> =
+            get_files_by_level(self.files.to_vec(), CURRENT_LEVEL);
 
         for path in &level_zero_tables {
             let mut file = OpenOptions::new().read(true).open(path).unwrap();

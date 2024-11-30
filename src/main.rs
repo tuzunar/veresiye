@@ -27,13 +27,13 @@ fn main() {
     //     db.set(&key, &value);
     // }
 
-    match db.get("key109888") {
+    match db.get("keyasdf10") {
         Some(value) => println!("{}", value),
-        None => println!("value not found")
+        None => println!("Value not found"),
     }
     // println!("{:?}", db.get("key10921").unwrap());
 
-    // db.compact();
+    db.compact();
     // println!("{}", db.get_memdb_size());
 
     // for n in 10924..21848 {

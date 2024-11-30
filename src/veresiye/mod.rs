@@ -3,6 +3,7 @@ use std::{
     collections::BTreeMap,
     fs::{create_dir_all, read_dir, File, OpenOptions},
     io::{self, Error, Read, Result, Seek, SeekFrom, Write},
+    os::fd::{AsFd, AsRawFd},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -89,6 +90,10 @@ impl Veresiye {
             ))
         } else {
             for table in self.sstable.iter() {
+                // println!(
+                //     "file is {:?}",
+                //     PathBuf::from(format!("{:?}", table.file.as_fd()))
+                // );
                 if let Some(value) = &table.get(key) {
                     return Some(value.clone());
                 }
@@ -142,11 +147,57 @@ impl Veresiye {
 
     pub fn compact(&mut self) {
         let cmpct = Compaction::init(String::from(&self.path)).clone();
+        let old_manifest_data = &self.manifest.get_manifest();
+        match cmpct
+            .level_zero_check(old_manifest_data.get_removable_tables().to_vec())
+            .clone()
+        {
+            true => {
+                let removable_tables: Vec<PathBuf> = cmpct.compact_level_zero().clone();
 
-        let removable_tables: Vec<PathBuf> = cmpct.compact_level_zero();
-        let manifest_data = &self.manifest.edit_removable_tables(removable_tables);
+                let manifest_data = &self
+                    .manifest
+                    .edit_removable_tables(removable_tables.to_vec());
 
-        &self.manifest.save_manifest(&manifest_data);
+                &self.manifest.save_manifest(&manifest_data);
+            }
+
+            false => println!("not need compaction for level 0 tables"),
+        }
+
+        match cmpct
+            .level_one_check(old_manifest_data.get_removable_tables().to_vec())
+            .clone()
+        {
+            true => {
+                let removable_tables: Vec<PathBuf> = cmpct.compact_level_zero().clone();
+
+                let manifest_data = &self
+                    .manifest
+                    .edit_removable_tables(removable_tables.to_vec());
+
+                &self.manifest.save_manifest(&manifest_data);
+            }
+
+            false => println!("not need compaction for level 1 tables"),
+        }
+
+        match cmpct
+            .level_two_check(old_manifest_data.get_removable_tables().to_vec())
+            .clone()
+        {
+            true => {
+                let removable_tables: Vec<PathBuf> = cmpct.compact_level_zero().clone();
+
+                let manifest_data = &self
+                    .manifest
+                    .edit_removable_tables(removable_tables.to_vec());
+
+                &self.manifest.save_manifest(&manifest_data);
+            }
+
+            false => println!("not need compaction for level 2 tables"),
+        }
     }
 
     pub fn cleanup_logs(self) {
