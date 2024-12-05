@@ -1,8 +1,10 @@
 use core::str;
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fs::{File, OpenOptions},
     io::{self, BufRead, Read, Result, Seek, Write},
+    path::PathBuf,
 };
 
 use memmap2::{Mmap, MmapOptions};
@@ -21,7 +23,8 @@ mod index_data;
 
 #[derive(Debug)]
 pub struct Table {
-    pub file: File,
+    file: File,
+    path: PathBuf,
     level: usize,
     //  bloom: BloomFilter,
 }
@@ -35,12 +38,13 @@ impl Table {
             .open(filename)?;
 
         let bloom = BloomFilter::create(10000, 0.001f64);
+        let path = PathBuf::from(filename);
         // let filter = format!("{:?}", &bloom.get_filter());
         // file.write(&bloom.get_filter()).expect("cannot write bloom filter to file");
 
         // writeln!(file).unwrap();
 
-        Ok(Table { file, level })
+        Ok(Table { file, level, path })
     }
 
     pub fn open(file_path: &str) -> io::Result<Self> {
@@ -51,9 +55,11 @@ impl Table {
         let sstable_dir: Vec<&str> = file_path.split("/").collect();
         let sstable_labels: Vec<&str> = sstable_dir[2].split("_").collect();
         let sstable_level: &str = sstable_labels[1];
+        let path = PathBuf::from(file_path);
         Ok(Table {
             file,
             level: sstable_level.parse::<usize>().unwrap(),
+            path,
         })
     }
 
@@ -83,6 +89,10 @@ impl Table {
         let footer_start_offset = f.write(&footer.to_bytes()).expect("footer write error");
 
         println!("footer start offset: {}", footer_start_offset);
+    }
+
+    pub fn get_table_path(&self) -> &PathBuf {
+        &self.path
     }
 
     pub fn get(&self, key: &str) -> Option<String> {
@@ -142,6 +152,36 @@ impl Table {
         self.level
     }
 }
+
+impl Clone for Table {
+    fn clone(&self) -> Self {
+        Self {
+            file: self.file.try_clone().expect("failed to clone file"),
+            path: self.path.clone(),
+            level: self.level.clone(),
+        }
+    }
+}
+
+impl PartialOrd for Table {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Table {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.path).cmp(&(other.path))
+    }
+}
+
+impl PartialEq for Table {
+    fn eq(&self, other: &Self) -> bool {
+        (self.path) == (other.path)
+    }
+}
+
+impl Eq for Table {}
 
 ///
 /// Reconstruct BTree from sstable and return it.
