@@ -89,15 +89,27 @@ impl Veresiye {
                 self.memdb.get(key).expect("cannot get value from memdb"),
             ))
         } else {
-            for table in self.sstable.iter() {
-                // println!(
-                //     "file is {:?}",
-                //     PathBuf::from(format!("{:?}", table.file.as_fd()))
-                // );
+            let manifest = self.manifest.get_manifest();
+            let removable_tables = manifest.get_removable_tables();
+
+            let mut tables = self
+                .sstable
+                .iter()
+                .filter(|table| !removable_tables.contains(table.get_table_path()))
+                .collect::<Vec<&Table>>()
+                .clone();
+
+            &tables.sort();
+            for table in &tables {
+                if removable_tables.contains(table.get_table_path()) {
+                    continue;
+                }
+
                 if let Some(value) = &table.get(key) {
                     return Some(value.clone());
                 }
             }
+            println!("{:?}", &tables);
             None
         }
     }
