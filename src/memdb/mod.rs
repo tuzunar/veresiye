@@ -63,3 +63,52 @@ impl memdb {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ptr::null;
+
+    use super::*;
+
+    #[test]
+    fn test_insert() {
+        let mut memdb = memdb::new();
+
+        memdb.insert("test", "test_value");
+        assert!(memdb.buffer.contains_key("test"));
+    }
+
+    #[test]
+    fn test_get() {
+        let mut memdb = memdb::new();
+
+        memdb.insert("test", "test_value");
+        assert_eq!(memdb.get("test").unwrap(), "test_value")
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut memdb = memdb::new();
+
+        memdb.insert("test", "test_value");
+        memdb.insert("test1", "test_value1");
+        memdb.delete("test");
+
+        assert_eq!(
+            match memdb.get("test") {
+                Some(v) => v,
+                None => "None",
+            },
+            "None"
+        );
+        assert_eq!(memdb.get("test1").unwrap(), "test_value1");
+    }
+
+    #[test]
+    fn test_get_size() {
+        let mut memdb = memdb::new();
+
+        memdb.insert("key", "value");
+        assert_eq!(memdb.size(), 120);
+    }
+}
