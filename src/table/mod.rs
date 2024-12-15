@@ -238,3 +238,68 @@ fn get_index_block(mmap: &Mmap, footer_size: usize) -> IndexBlock {
 
     iblocks
 }
+
+#[cfg(test)]
+mod test {
+    use std::{env::temp_dir, fs::metadata};
+
+    use util::get_timestamp;
+
+    use super::*;
+
+    #[test]
+    fn test_new_table_creation() {
+        let tempdir = temp_dir();
+        let filename = tempdir.join("level_0_173342950322");
+
+        let table = Table::new(filename.to_str().unwrap(), 0);
+
+        assert!(table.is_ok());
+
+        let table = table.unwrap();
+        assert_eq!(table.get_table_level(), 0);
+        assert_eq!(table.get_table_path(), &filename)
+    }
+
+    #[test]
+    fn test_data_insertion_to_table() {
+        let tempdir = temp_dir();
+        let filename = tempdir.join("level_0_173342950320");
+
+        let table = Table::new(filename.to_str().unwrap(), 0).unwrap();
+
+        let mut data_block = BTreeMap::new();
+
+        data_block.insert(String::from("test_key"), String::from("test_value"));
+        data_block.insert(String::from("test_key1"), String::from("test_value1"));
+
+        table.insert(&data_block);
+
+        let metadata = metadata(filename.to_str().unwrap()).unwrap();
+
+        assert!(metadata.len() > 0);
+    }
+
+    #[test]
+    fn test_get_data_from_table() {
+        let tempdir = temp_dir();
+        let fname = format!("level_0_{}", get_timestamp());
+        let filename = tempdir.join(fname);
+
+        let table = Table::new(filename.to_str().unwrap(), 0).unwrap();
+
+        let mut data_block = BTreeMap::new();
+
+        data_block.insert(String::from("test_key"), String::from("test_value"));
+
+        table.insert(&data_block);
+
+        // let metadata = metadata(filename.to_str().unwrap()).unwrap();
+
+        // assert!(metadata.len() > 0);
+
+        println!("{:?}", filename);
+
+        assert_eq!(table.get("test_key").unwrap(), "test_value");
+    }
+}
