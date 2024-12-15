@@ -6,7 +6,7 @@ edition = "2021"
 author = ["Caner Tuzunar <tuzunarcaner@outlook.com>"]
 repository = "https://github.com/tuzunar/veresiye"
 readme = "README.md"
-categories = ["database"]
+categories = ["database-implementations", "database-structures"]
 keywords = ["database", "sstable", "WAL", "LSM_Tree"]
 license = "Apache-2.0"
 
