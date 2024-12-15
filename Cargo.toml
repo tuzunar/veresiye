@@ -1,6 +1,6 @@
 [package]
 name = "veresiye"
-version = "1.0.0"
+version = "1.0.1"
 description = "Veresiye Database"
 edition = "2021"
 author = ["Caner Tuzunar <tuzunarcaner@outlook.com>"]
