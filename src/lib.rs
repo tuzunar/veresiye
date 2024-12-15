@@ -7,6 +7,8 @@ mod util;
 pub mod veresiye;
 mod wal;
 
+pub use veresiye::Veresiye;
+
 // #[tokio::main]
 // pub async fn launch_server() -> Result<(), Box<dyn std::error::Error>> {
 //     let listener = TokioTcpListener::bind("127.0.0.1:19230").await?;
