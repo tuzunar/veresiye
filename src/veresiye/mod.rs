@@ -29,8 +29,6 @@ pub struct Veresiye {
 
 const MEMDB_SIZE_THRESHOLD: usize = 1024 * 1024 * 1;
 
-/// new sstables always write third level
-
 impl Veresiye {
     pub fn new(path: String) -> Result<Veresiye> {
         let p = Path::new(&path);
