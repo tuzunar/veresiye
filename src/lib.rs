@@ -4,7 +4,7 @@ mod manifest;
 mod memdb;
 mod table;
 mod util;
-mod veresiye;
+pub mod veresiye;
 mod wal;
 
 // #[tokio::main]
