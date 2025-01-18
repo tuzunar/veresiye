@@ -31,11 +31,12 @@ pub struct Table {
 
 impl Table {
     pub fn new(filename: &str, level: usize) -> io::Result<Self> {
+        let folder = format!("{}/tables", filename);
         let file = OpenOptions::new()
             .read(true)
             .create(true)
             .append(true)
-            .open(filename)?;
+            .open(folder)?;
 
         let bloom = BloomFilter::create(10000, 0.001f64);
         let path = PathBuf::from(filename);
@@ -48,9 +49,10 @@ impl Table {
     }
 
     pub fn open(file_path: &str) -> io::Result<Self> {
+        let folder = format!("{}/tables", file_path);
         let file = OpenOptions::new()
             .read(true)
-            .open(file_path)
+            .open(folder)
             .expect("cannot open table file");
         let sstable_dir: Vec<&str> = file_path.split("/").collect();
         let sstable_labels: Vec<&str> = sstable_dir[2].split("_").collect();
