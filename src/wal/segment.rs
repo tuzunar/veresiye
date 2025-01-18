@@ -30,7 +30,7 @@ impl Segment {
         let file = OpenOptions::new().write(true).read(true).open(&path)?;
         let path_parts: &Vec<&str> = &path.split("/").collect();
 
-        if path_parts[2].len() != 20 {
+        if path_parts[3].len() != 20 {
             eprintln!("Wrong log file");
         }
 
