@@ -33,11 +33,13 @@ impl Veresiye {
     pub fn new(path: String) -> Result<Veresiye> {
         let p = Path::new(&path);
 
+        let log_path = format!("{}/log", path);
+
         if !p.exists() {
             create_dir_all(&p)?;
 
             let sstable = vec![];
-            let wal = wal::Log::open("./log", 10000).unwrap();
+            let wal = wal::Log::open(&log_path, 10000).unwrap();
             let memdb = memdb::new();
             let manifest = Manifest::create().expect("cannot create manifest file");
 
@@ -53,7 +55,7 @@ impl Veresiye {
                 return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
             };
             let mut manifest = Manifest::open().expect("cannot open the manifest file");
-            let wal = wal::Log::open("./log", 10000).unwrap();
+            let wal = wal::Log::open(&log_path, 10000).unwrap();
             let mut memdb = memdb::new();
 
             let manifest_data = &manifest.get_manifest();
