@@ -11,10 +11,11 @@ mod manifest_data;
 
 pub struct Manifest {
     file: File,
+    db_path: String,
 }
 
 impl Manifest {
-    pub fn create() -> io::Result<Self> {
+    pub fn create(db_path: String) -> io::Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -22,17 +23,17 @@ impl Manifest {
             .open("./manifest")
             .expect("cannot create manifest file");
 
-        Ok(Manifest { file })
+        Ok(Manifest { file, db_path })
     }
 
-    pub fn open() -> io::Result<Self> {
+    pub fn open(db_path: String) -> io::Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .open("./manifest")
             .expect("cannot create manifest file");
 
-        Ok(Manifest { file })
+        Ok(Manifest { file, db_path })
     }
 
     // pub fn get_serialized(&self) {
@@ -43,7 +44,7 @@ impl Manifest {
         if self.file.metadata().unwrap().len() as i32 == i32::from(0) {
             let manifest_content = ManifestData::create(
                 String::from("0"),
-                String::from("./log/00000000000000000001"),
+                String::from(format!("{}/log/00000000000000000001", self.db_path)),
                 vec![],
             );
             manifest_content
