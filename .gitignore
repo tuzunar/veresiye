@@ -9,4 +9,7 @@ Cargo.lock
 #project files
 log
 data
-./manifest
+manifest
+
+# exclude
+!/src/manifest
