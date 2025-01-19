@@ -31,12 +31,12 @@ pub struct Table {
 
 impl Table {
     pub fn new(filename: &str, level: usize) -> io::Result<Self> {
-        let folder = format!("{}/tables", filename);
         let file = OpenOptions::new()
             .read(true)
             .create(true)
             .append(true)
-            .open(folder)?;
+            .open(filename)
+            .expect("table cannot create");
 
         let bloom = BloomFilter::create(10000, 0.001f64);
         let path = PathBuf::from(filename);
@@ -49,10 +49,9 @@ impl Table {
     }
 
     pub fn open(file_path: &str) -> io::Result<Self> {
-        let folder = format!("{}/tables", file_path);
         let file = OpenOptions::new()
             .read(true)
-            .open(folder)
+            .open(file_path)
             .expect("cannot open table file");
         let sstable_dir: Vec<&str> = file_path.split("/").collect();
         let sstable_labels: Vec<&str> = sstable_dir[2].split("_").collect();
@@ -243,16 +242,19 @@ fn get_index_block(mmap: &Mmap, footer_size: usize) -> IndexBlock {
 
 #[cfg(test)]
 mod test {
-    use std::{env::temp_dir, fs::metadata};
+    use std::{env::temp_dir, fs::metadata, path::Path};
 
+    use tempdir::TempDir;
     use util::get_timestamp;
 
     use super::*;
 
     #[test]
     fn test_new_table_creation() {
-        let tempdir = temp_dir();
-        let filename = tempdir.join("level_0_173342950322");
+        let tempdir = TempDir::new("veresiye_test").unwrap();
+
+        let filename = tempdir.path().join("level_0_173342950322");
+        println!("{:?}", filename);
 
         let table = Table::new(filename.to_str().unwrap(), 0);
 
@@ -260,14 +262,16 @@ mod test {
 
         let table = table.unwrap();
         assert_eq!(table.get_table_level(), 0);
-        assert_eq!(table.get_table_path(), &filename)
+        assert_eq!(table.get_table_path(), &filename);
+
+        tempdir.close().unwrap();
     }
 
     #[test]
     fn test_data_insertion_to_table() {
         let tempdir = temp_dir();
         let filename = tempdir.join("level_0_173342950320");
-
+        println!("{:?}", filename);
         let table = Table::new(filename.to_str().unwrap(), 0).unwrap();
 
         let mut data_block = BTreeMap::new();
