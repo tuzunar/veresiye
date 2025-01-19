@@ -41,7 +41,8 @@ impl Veresiye {
             let sstable = vec![];
             let wal = wal::Log::open(&log_path, 10000).unwrap();
             let memdb = memdb::new();
-            let manifest = Manifest::create().expect("cannot create manifest file");
+            let manifest =
+                Manifest::create(String::from(&path)).expect("cannot create manifest file");
 
             Ok(Veresiye {
                 wal,
@@ -54,7 +55,8 @@ impl Veresiye {
             if !p.is_dir() {
                 return Err(Error::new(io::ErrorKind::Other, "path not a directory"));
             };
-            let mut manifest = Manifest::open().expect("cannot open the manifest file");
+            let mut manifest =
+                Manifest::open(String::from(&path)).expect("cannot open the manifest file");
             let wal = wal::Log::open(&log_path, 10000).unwrap();
             let mut memdb = memdb::new();
 
