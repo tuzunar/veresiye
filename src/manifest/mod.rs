@@ -16,22 +16,24 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn create(db_path: String) -> io::Result<Self> {
+        let manifest_location = format!("{}/manifest", db_path);
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open("./manifest")
+            .open(manifest_location)
             .expect("cannot create manifest file");
 
         Ok(Manifest { file, db_path })
     }
 
     pub fn open(db_path: String) -> io::Result<Self> {
+        let manifest_location = format!("{}/manifest", db_path);
         let file = OpenOptions::new()
             .read(true)
             .write(true)
-            .open("./manifest")
-            .expect("cannot create manifest file");
+            .open(manifest_location)
+            .expect("cannot open manifest file");
 
         Ok(Manifest { file, db_path })
     }
