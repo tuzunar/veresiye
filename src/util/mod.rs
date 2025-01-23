@@ -66,7 +66,7 @@ pub fn parse_log_line(entry: &str) -> LogData {
     // println!("{:?} {:?}", log_data, log_data_parts);
     let command = log_data_parts[0].to_string();
     let key = log_data_parts[1].to_string();
-    let value = log_data_parts[2].to_string();
+    let value = log_data_parts[2..].join(",").to_string();
 
     LogData {
         command,
