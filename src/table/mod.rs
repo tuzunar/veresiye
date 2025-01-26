@@ -9,7 +9,7 @@ use std::{
 
 use memmap2::{Mmap, MmapOptions};
 
-use crate::{filter::BloomFilter, util};
+use crate::{constants::TOMBSTONE_VALUE, filter::BloomFilter, util};
 
 use self::{
     footer::{Footer, FOOTER_SIZE},
@@ -212,6 +212,10 @@ pub fn reconstruct_tree_from_sstable(file: File) -> BTreeMap<String, String> {
         let pair: Vec<&str> = pairs.split(":").collect();
         let key: &str = pair[0];
         let value: &str = pair[1];
+
+        if value == TOMBSTONE_VALUE {
+            continue;
+        }
 
         reconstructed_tree.insert(String::from(key), String::from(value));
     }
