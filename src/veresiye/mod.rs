@@ -11,6 +11,7 @@ use std::{
 use compaction::Compaction;
 
 use crate::{
+    constants::TOMBSTONE_VALUE,
     manifest::Manifest,
     memdb::memdb,
     table::{self, Table},
@@ -88,9 +89,17 @@ impl Veresiye {
 
     pub fn get(&mut self, key: &str) -> Option<String> {
         if self.memdb.buffer.contains_key(key) {
-            Some(String::from(
-                self.memdb.get(key).expect("cannot get value from memdb"),
-            ))
+            if let Some(value) = self.memdb.get(key) {
+                if (value.clone() == TOMBSTONE_VALUE) {
+                    return None;
+                } else {
+                    Some(String::from(
+                        self.memdb.get(key).expect("cannot get value from memdb"),
+                    ))
+                }
+            } else {
+                return None;
+            }
         } else {
             let manifest = self.manifest.get_manifest();
             let removable_tables = manifest.get_removable_tables();
@@ -109,10 +118,12 @@ impl Veresiye {
                 }
 
                 if let Some(value) = &table.get(key) {
+                    if (value.clone() == TOMBSTONE_VALUE) {
+                        return None;
+                    }
                     return Some(value.clone());
                 }
             }
-            println!("{:?}", &tables);
             None
         }
     }
@@ -123,6 +134,40 @@ impl Veresiye {
 
     pub fn set(&mut self, key: &str, value: &str) {
         let operation = format!("SET, {}, {}", key, value);
+        match self.wal.write(operation.as_bytes()) {
+            Ok(result) => {
+                self.memdb.insert(key, value);
+
+                if self.memdb.size() >= MEMDB_SIZE_THRESHOLD {
+                    self.memdb.move_buffer_to_data();
+                    let sstable_name = format!("level_0_{}", get_timestamp());
+                    let sstable_path = format!("./{}/tables/{}", self.path, sstable_name);
+
+                    let new_table = table::Table::new(&sstable_path, 0 as usize)
+                        .expect("cannot create new table");
+                    self.sstable.push(new_table);
+
+                    self.sstable
+                        .last()
+                        .unwrap()
+                        .insert(self.memdb.get_hash_table());
+
+                    let manifest_data = self
+                        .manifest
+                        .edit_manifest(result.entry_number, result.file_path);
+
+                    self.manifest.save_manifest(&manifest_data);
+                }
+            }
+            Err(e) => {
+                panic!("operation failed {}", e)
+            }
+        }
+    }
+
+    pub fn delete(&mut self, key: &str) {
+        let value = TOMBSTONE_VALUE;
+        let operation = format!("DEL, {}, {}", key, value);
         match self.wal.write(operation.as_bytes()) {
             Ok(result) => {
                 self.memdb.insert(key, value);
