@@ -165,7 +165,7 @@ impl Veresiye {
         }
     }
 
-    pub fn delete(&mut self, key: &str) {
+    pub fn delete(&mut self, key: &str) -> Option<bool> {
         let value = TOMBSTONE_VALUE;
         let operation = format!("DEL, {}, {}", key, value);
         match self.wal.write(operation.as_bytes()) {
@@ -191,10 +191,14 @@ impl Veresiye {
                         .edit_manifest(result.entry_number, result.file_path);
 
                     self.manifest.save_manifest(&manifest_data);
+                    Some(true)
+                } else {
+                    None
                 }
             }
             Err(e) => {
-                panic!("operation failed {}", e)
+                panic!("operation failed {}", e);
+                None
             }
         }
     }
