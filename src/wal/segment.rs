@@ -83,27 +83,9 @@ impl Segment {
         let timestamp = util::get_timestamp();
         self.entry_number += 1;
         let entry_number: u32 = self.entry_number as u32;
-        let entry_str = match std::str::from_utf8(entry) {
-            Ok(s) => s,
-            Err(e) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("Write error: {}", e),
-                ));
-            }
-        };
-        let checksum = util::calculate_checksum(entry_str);
-        let log_entry = format!(
-        "{:?}#{:?}#{}#{}#{:?}",
-            entry_number,
-            timestamp,
-            entry.len(),
-            checksum,
-            entry
-        );
 
         //New entry structure [sequence | operation | key_length | key | value_length | value | checksum]
-        let record = Vec::new();
+        let mut record = Vec::new();
 
         let operation_byte = op_type as u8;
         let key_length = key.len().to_le_bytes();
