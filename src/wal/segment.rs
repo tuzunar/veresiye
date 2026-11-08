@@ -8,6 +8,8 @@ use std::{
     u8, usize,
 };
 
+use crc_fast::crc32_iscsi;
+
 use crate::{memdb::memdb, util, wal::OperationType};
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
@@ -108,12 +110,16 @@ impl Segment {
         let value_length = value.len().to_le_bytes();
 
         record.extend_from_slice(&entry_number.to_le_bytes());
+        let checksum_start = record.len();
+
         record.extend_from_slice(&[operation_byte]);
         record.extend_from_slice(&key_length);
         record.extend_from_slice(key.as_bytes());
         record.extend_from_slice(&value_length);
         record.extend_from_slice(value.as_bytes());
 
+        let checksum = crc32_iscsi(&record[checksum_start..]);
+        record.extend_from_slice(&checksum.to_le_bytes());
 
 
         //program must be crash if flush operation not finished successfuly
