@@ -21,6 +21,13 @@ pub struct Log {
     removable_segments: Vec<PathBuf>,
 }
 
+// #[repr(u8)]
+// #[derive(Copy, Clone)]
+enum OperationType {
+    Set = 0x01,
+    Delete = 0x02,
+}
+
 const LOG_RETENTION_MS: u64 = 60 * 60 * 24 * 7;
 
 impl Log {
@@ -72,10 +79,10 @@ impl Log {
         })
     }
 
-    pub fn write(&mut self, entry: &[u8]) -> io::Result<WriteResult> {
+    pub fn write(&mut self, key: &str, value: &str) -> io::Result<WriteResult> {
         self.allocate(1)?;
         let segment = self.segments.last_mut().unwrap();
-        Ok(segment.write(entry).expect("log cannot write to segment"))
+        Ok(segment.write(&OperationType::Set, key, value).expect("log cannot write to segment"))
     }
 
     fn allocate(&mut self, n: usize) -> Result<usize> {

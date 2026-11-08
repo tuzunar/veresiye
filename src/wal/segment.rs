@@ -8,7 +8,7 @@ use std::{
     u8, usize,
 };
 
-use crate::{memdb::memdb, util};
+use crate::{memdb::memdb, util, wal::OperationType};
 
 const DEFAULT_ENTRY_LIMIT: usize = 10 << 10;
 
@@ -76,11 +76,11 @@ impl Segment {
         Ok(content)
     }
 
-    pub fn write(&mut self, entry: &[u8]) -> io::Result<WriteResult> {
+    pub fn write(&mut self, op_type: OperationType, key: &str, value: &str) -> io::Result<WriteResult> {
         let mut file = self.file.lock().unwrap();
         let timestamp = util::get_timestamp();
         self.entry_number += 1;
-        let entry_number: usize = self.entry_number as usize;
+        let entry_number: u32 = self.entry_number as u32;
         let entry_str = match std::str::from_utf8(entry) {
             Ok(s) => s,
             Err(e) => {
@@ -92,17 +92,37 @@ impl Segment {
         };
         let checksum = util::calculate_checksum(entry_str);
         let log_entry = format!(
-            "{:?}#{:?}#{}#{}#{:?}",
+        "{:?}#{:?}#{}#{}#{:?}",
             entry_number,
             timestamp,
             entry.len(),
             checksum,
             entry
         );
-        writeln!(file, "{}", log_entry)?;
+
+        //New entry structure [sequence | operation | key_length | key | value_length | value | checksum]
+        let record = Vec::new();
+
+        let operation_byte = op_type as u8;
+        let key_length = key.len().to_le_bytes();
+        let value_length = value.len().to_le_bytes();
+
+        record.extend_from_slice(&entry_number.to_le_bytes());
+        record.extend_from_slice(&[operation_byte]);
+        record.extend_from_slice(&key_length);
+        record.extend_from_slice(key.as_bytes());
+        record.extend_from_slice(&value_length);
+        record.extend_from_slice(value.as_bytes());
+
+
 
         //program must be crash if flush operation not finished successfuly
-        file.flush()?;
+        /* 
+            I was using :flush() here but it was wrong approach flush doesn't provide any 
+            ensurance for writing operations but we're losing too much speed here sync_all()
+            or sync_data() is really expensive 
+        */
+        file.sync_all();
 
         Ok(WriteResult {
             entry_number: entry_number.to_string(),

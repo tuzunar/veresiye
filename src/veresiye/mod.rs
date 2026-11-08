@@ -133,8 +133,7 @@ impl Veresiye {
     }
 
     pub fn set(&mut self, key: &str, value: &str) {
-        let operation = format!("SET, {}, {}", key, value);
-        match self.wal.write(operation.as_bytes()) {
+        match self.wal.write(key, value) {
             Ok(result) => {
                 self.memdb.insert(key, value);
 
