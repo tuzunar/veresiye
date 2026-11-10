@@ -147,6 +147,7 @@ impl Segment {
         let mut offset: usize = 0;
 
         while offset < data.len() {
+            //Skip sequence field
             offset += 4;
             let operation_type = u8::from_le_bytes(data[offset..offset+1].try_into().unwrap()) as usize;
             offset += 1;
@@ -159,6 +160,7 @@ impl Segment {
             offset += 8;
             let value = String::from_utf8(data[offset..offset+value_length].to_vec());
             offset += value_length;
+            //Skip checksum field
             offset += 4;
         }
 
