@@ -1,7 +1,7 @@
 mod segment;
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap},
     fs::{self, create_dir_all, read_dir, remove_file, File},
     io::{self, BufRead, BufReader, Error, Result},
     path::{Path, PathBuf},
@@ -50,8 +50,7 @@ impl Log {
         if dir.len() >= usize::try_from(1).unwrap() {
             for file in dir {
                 let file_path = format!("{}", &file.path().display());
-                let f = File::open(&file_path).unwrap();
-                match Segment::check_log_integrity(&f) {
+                match Segment::check_log_integrity(&file_path) {
                     Ok(_) => println!("{} integrity is okay", &file.path().display()),
                     Err(e) => panic!("Corrupted WAL Detected"),
                 };

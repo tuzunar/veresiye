@@ -1,11 +1,5 @@
 use std::{
-    collections::HashMap,
-    fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
-    sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
-    u8, usize,
+    collections::HashMap, fs::{self, File, OpenOptions}, io::{self, BufRead, BufReader, Read, Result, Seek, SeekFrom, Write}, path::{Path, PathBuf}, sync::Mutex, time::{SystemTime, UNIX_EPOCH}, u8, usize,
 };
 
 use crc_fast::crc32_iscsi;
@@ -88,8 +82,8 @@ impl Segment {
         let mut record = Vec::new();
 
         let operation_byte = op_type as u8;
-        let key_length = key.len().to_le_bytes();
-        let value_length = value.len().to_le_bytes();
+        let key_length : [u8; 8] = key.len().to_le_bytes();
+        let value_length: [u8; 8] = value.len().to_le_bytes();
 
         record.extend_from_slice(&entry_number.to_le_bytes());
         let checksum_start = record.len();
@@ -100,7 +94,7 @@ impl Segment {
         record.extend_from_slice(&value_length);
         record.extend_from_slice(value.as_bytes());
 
-        let checksum = crc32_iscsi(&record[checksum_start..]);
+        let checksum :u32 = crc32_iscsi(&record[checksum_start..]);
         record.extend_from_slice(&checksum.to_le_bytes());
 
 
@@ -110,7 +104,8 @@ impl Segment {
             ensurance for writing operations but we're losing too much speed here sync_all()
             or sync_data() is really expensive 
         */
-        file.sync_all();
+        file.write_all(&record)?;
+        file.sync_all()?;
 
         Ok(WriteResult {
             entry_number: entry_number.to_string(),
@@ -147,26 +142,46 @@ impl Segment {
         Ok(created_at)
     }
 
-    pub fn check_log_integrity(file: &File) -> Result<bool> {
-        let reader = BufReader::new(file);
+    pub fn check_log_integrity(file: &str) -> Result<bool> {
+        let data = fs::read(file).unwrap();
+        let mut offset: usize = 0;
 
-        for line in reader.lines() {
-            let entry = line?;
-
-            let log_parts: Vec<&str> = entry.split('#').collect();
-
-            if log_parts.len() != 5 {
-                return Err(io::Error::new(io::ErrorKind::Other, "Invalid WAL Entry"));
-            }
-
-            let log_checksum = log_parts[3];
-            let log_data: Vec<u8> = parse_byte(log_parts[4]);
-            let converted_log: &str = convert_byte_to_str(&log_data).expect("convert error");
-            let control_checksum = util::calculate_checksum(converted_log);
-            if log_checksum != control_checksum {
-                return Err(io::Error::new(io::ErrorKind::Other, "Corrupted WAL Entry"));
-            }
+        while offset < data.len() {
+            offset += 4;
+            let operation_type = u8::from_le_bytes(data[offset..offset+1].try_into().unwrap()) as usize;
+            offset += 1;
+            let key_length_slice: [u8; 8] = data[offset..offset+8].try_into().unwrap();
+            let key_length = u64::from_le_bytes(key_length_slice) as usize;
+            offset += 8;
+            let key = String::from_utf8(data[offset..offset+key_length].to_vec());
+            offset += key_length;
+            let value_length = u64::from_le_bytes(data[offset..offset+8].try_into().unwrap()) as usize;
+            offset += 8;
+            let value = String::from_utf8(data[offset..offset+value_length].to_vec());
+            offset += value_length;
+            offset += 4;
         }
+
+
+        // let reader = BufReader::new(file);
+
+        // for line in reader.lines() {
+        //     let entry = line?;
+
+        //     let log_parts: Vec<&str> = entry.split('#').collect();
+
+        //     if log_parts.len() != 5 {
+        //         return Err(io::Error::new(io::ErrorKind::Other, "Invalid WAL Entry"));
+        //     }
+
+        //     let log_checksum = log_parts[3];
+        //     let log_data: Vec<u8> = parse_byte(log_parts[4]);
+        //     let converted_log: &str = convert_byte_to_str(&log_data).expect("convert error");
+        //     let control_checksum = util::calculate_checksum(converted_log);
+        //     if log_checksum != control_checksum {
+        //         return Err(io::Error::new(io::ErrorKind::Other, "Corrupted WAL Entry"));
+        //     }
+        // }
 
         Ok(true)
     }
